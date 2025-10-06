@@ -11,7 +11,8 @@ type Provider struct {
 	Name               string    `gorm:"name;not null"`
 	ServiceType        string    `gorm:"not null"`
 	ServiceDescription string    `gorm:"not null"`
-	//Config        int            `gorm:"config;not null"`
+	// TODO
+	//Config        object            `gorm:"config;not null"`
 }
 
 type ProviderList []Provider

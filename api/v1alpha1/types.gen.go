@@ -27,7 +27,7 @@ type Provider struct {
 	ServiceType string `json:"serviceType"`
 
 	// Uuid Unique identifier for the Service Provider
-	Uuid string `json:"uuid"`
+	Uuid *string `json:"uuid,omitempty"`
 }
 
 // ProviderApplication defines model for ProviderApplication.
@@ -35,7 +35,7 @@ type ProviderApplication struct {
 	// Config Configuration for the Service Provider Application
 	Config *map[string]interface{} `json:"config,omitempty"`
 
-	// Uuid Unique identifier for the Service Provider
+	// Uuid ID of the Application
 	Uuid *string `json:"uuid,omitempty"`
 }
 

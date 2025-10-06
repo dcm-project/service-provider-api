@@ -9,25 +9,25 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-type Application interface {
-	List(ctx context.Context) (model.ProviderList, error)
-	Create(ctx context.Context, app model.Application) (*model.Application, error)
+type ProviderApplication interface {
+	List(ctx context.Context) (model.ProviderApplicationList, error)
+	Create(ctx context.Context, app model.ProviderApplication) (*model.ProviderApplication, error)
 	Delete(ctx context.Context, id uuid.UUID) error
-	Get(ctx context.Context, id uuid.UUID) (*model.Application, error)
+	Get(ctx context.Context, id uuid.UUID) (*model.ProviderApplication, error)
 }
 
-type ApplicationStore struct {
+type ProviderApplicationStore struct {
 	db *gorm.DB
 }
 
-var _ Application = (*ApplicationStore)(nil)
+var _ ProviderApplication = (*ProviderApplicationStore)(nil)
 
-func NewApplication(db *gorm.DB) Application {
-	return &ApplicationStore{db: db}
+func NewProviderApplication(db *gorm.DB) ProviderApplication {
+	return &ProviderApplicationStore{db: db}
 }
 
-func (s *ApplicationStore) List(ctx context.Context) (model.ApplicationList, error) {
-	var apps model.ApplicationList
+func (s *ProviderApplicationStore) List(ctx context.Context) (model.ProviderApplicationList, error) {
+	var apps model.ProviderApplicationList
 	tx := s.db.Model(&apps)
 	result := tx.Find(&apps)
 	if result.Error != nil {
@@ -36,15 +36,15 @@ func (s *ApplicationStore) List(ctx context.Context) (model.ApplicationList, err
 	return apps, nil
 }
 
-func (s *ApplicationStore) Delete(ctx context.Context, id uuid.UUID) error {
-	result := s.db.Delete(&model.Application{}, id)
+func (s *ProviderApplicationStore) Delete(ctx context.Context, id uuid.UUID) error {
+	result := s.db.Delete(&model.ProviderApplication{}, id)
 	if result.Error != nil {
 		return result.Error
 	}
 	return nil
 }
 
-func (s *ApplicationStore) Create(ctx context.Context, app model.Application) (*model.Application, error) {
+func (s *ProviderApplicationStore) Create(ctx context.Context, app model.ProviderApplication) (*model.ProviderApplication, error) {
 	result := s.db.Clauses(clause.Returning{}).Create(&app)
 	if result.Error != nil {
 		return nil, result.Error
@@ -53,8 +53,8 @@ func (s *ApplicationStore) Create(ctx context.Context, app model.Application) (*
 	return &app, nil
 }
 
-func (s *ApplicationStore) Get(ctx context.Context, id uuid.UUID) (*model.Application, error) {
-	var app model.Application
+func (s *ProviderApplicationStore) Get(ctx context.Context, id uuid.UUID) (*model.ProviderApplication, error) {
+	var app model.ProviderApplication
 	result := s.db.First(&app, id)
 	if result.Error != nil {
 		return nil, result.Error
