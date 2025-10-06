@@ -6,18 +6,21 @@ import (
 
 type Store interface {
 	Close() error
-	Application() Application
+	Application() ProviderApplication
+	Provider() Provider
 }
 
 type DataStore struct {
 	db          *gorm.DB
-	application Application
+	application ProviderApplication
+	provider    Provider
 }
 
 func NewStore(db *gorm.DB) Store {
 	return &DataStore{
 		db:          db,
-		application: NewApplication(db),
+		application: NewProviderApplication(db),
+		provider:    NewProvider(db),
 	}
 }
 
@@ -29,6 +32,10 @@ func (s *DataStore) Close() error {
 	return sqlDB.Close()
 }
 
-func (s *DataStore) Application() Application {
+func (s *DataStore) Application() ProviderApplication {
 	return s.application
+}
+
+func (s *DataStore) Provider() Provider {
+	return s.provider
 }
