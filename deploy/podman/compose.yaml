@@ -1,0 +1,26 @@
+services:
+  service-provider-db:
+    container_name: service-provider-db
+    image: ${PGSQL_IMAGE:-quay.io/sclorg/postgresql-15-c9s:latest}
+    environment:
+      - POSTGRESQL_DATABASE=service-provider
+      - POSTGRESQL_USER=admin
+      - POSTGRESQL_PASSWORD=adminpass
+      - POSTGRESQL_MASTER_USER=admin
+      - POSTGRESQL_MASTER_PASSWORD=adminpass
+      - PGPASSWORD=adminpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - service-provider-db:/var/lib/pgsql/data
+    networks:
+      - service-provider-network
+    restart: unless-stopped
+volumes:
+  service-provider-db:
+    driver_opts:
+      type: "tmpfs"  
+      device: "tmpfs" 
+      o: "nodev,noexec"
+networks:
+  service-provider-network:

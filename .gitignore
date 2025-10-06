@@ -1,0 +1,12 @@
+# IDE files
+.vscode/
+.idea
+
+# Build output
+/bin/
+vendor
+
+# Env files
+.env
+
+

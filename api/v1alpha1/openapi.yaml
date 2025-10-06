@@ -1,0 +1,217 @@
+openapi: 3.0.0
+info:
+  contact: { }
+  description: DCM Service Provider API
+  title: Service Provider API
+  version: v1alpha1
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: /
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: ListHealth
+      description: Health check for DCM Service Provider API
+      responses:
+        '200':
+          description: OK
+
+  /providers:
+    get:
+      summary: Get all providers
+      operationId: ListProviders
+      description: List all DCM Service Providers
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderList'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /provider/application/{id}:
+    post:
+      summary: Create a DCM application
+      operationId: createApplication
+      description: Create an application based on service provider
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderApplication'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderApplication'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete an application
+      operationId: deleteApplication
+      description: Delete a DCM application based on unique ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: No Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderApplication'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /provider/{id}:
+    get:
+      summary: Get a provider
+      operationId: GetProvider
+      description: Get a Service Provider
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Provider'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+
+components:
+  schemas:
+    Provider:
+      type: object
+      x-aep-resource: true
+      required:
+        - uuid
+        - name
+        - serviceType
+        - serviceDescription
+        - config
+      properties:
+        uuid:
+          type: string
+          description: Unique identifier for the Service Provider
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        name:
+          type: string
+          description: Name of the Service Provider
+          example: "kubevirt"
+        serviceType:
+          type: string
+          description: Type of the Service Provider
+          example: "vm"
+        serviceDescription:
+          type: string
+          description: Summary of Service Provider
+          example: "KubeVirt VM Service Provider"
+        config:
+          type: object
+          description: Configuration for the Service Provider
+
+    ProviderList:
+      type: object
+      properties:
+        applications:
+          type: array
+          items:
+            $ref: '#/components/schemas/Provider'
+        next_page_token:
+          type: string
+          description: Token for retrieving the next page of results
+          example: "eyJpZCI6IjEyM2U0NTY3LWU4OWItMTJkMy1hNDU2LTQyNjYxNDE3NDAwMCJ9"
+
+    ProviderApplication:
+      type: object
+      x-aep-resource: true
+      properties:
+        uuid:
+          type: string
+          description: Unique identifier for the Service Provider
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        config:
+          type: object
+          description: Configuration for the Service Provider Application
+
+    Error:
+      required:
+        - error
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: integer
+          description: Error code
+          example: 400

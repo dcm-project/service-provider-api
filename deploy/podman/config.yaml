@@ -1,0 +1,12 @@
+database:
+  hostname: service-provider-db
+  type: pgsql
+  port: 5432
+  name: service-provider
+  user: admin
+  password: adminpass
+service:
+  address: :8080
+  baseUrl: http://localhost:8080
+  altNames:
+    - localhost
