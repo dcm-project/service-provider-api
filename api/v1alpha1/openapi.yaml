@@ -46,13 +46,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /provider/application/{id}:
+  /vm/provider/{provider-id}:
     post:
-      summary: Create a DCM application
-      operationId: createApplication
+      summary: Create a VM
+      operationId: createVM
       description: Create an application based on service provider
       parameters:
-        - name: id
+        - name: provider-id
           in: path
           required: true
           schema:
@@ -63,14 +63,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProviderApplication'
+              $ref: '#/components/schemas/VMRequest'
       responses:
         '201':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProviderApplication'
+                $ref: '#/components/schemas/VM'
         '400':
           description: Bad request
           content:
@@ -88,7 +88,7 @@ paths:
       operationId: deleteApplication
       description: Delete a DCM application based on unique ID
       parameters:
-        - name: id
+        - name: provider-id
           in: path
           required: true
           schema:
@@ -100,7 +100,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProviderApplication'
+                $ref: '#/components/schemas/VM'
         '400':
           description: Bad request
           content:
@@ -190,18 +190,49 @@ components:
           description: Token for retrieving the next page of results
           example: "eyJpZCI6IjEyM2U0NTY3LWU4OWItMTJkMy1hNDU2LTQyNjYxNDE3NDAwMCJ9"
 
-    ProviderApplication:
+    VMRequest:
       type: object
       x-aep-resource: true
       properties:
-        uuid:
+        id:
           type: string
-          description: ID of the Application
+          description: ID of the VM
           example: "123e4567-e89b-12d3-a456-426614174000"
-        config:
-          type: object
-          description: Configuration for the Service Provider Application
+        name:
+          type: string
+          description: Name of the VM
+          example: "webserver"
+        namespace:
+          type: string
+          description: Namespace of the VM
+        osImage:
+          type: string
+          description: Base image of the OS
+          example: "quay.io/containerdisks/fedora:latest"
+        cpu:
+          type: integer
+          description: CPU for the VM
+          example: 1
+        ram:
+          type: integer
+          description: Ram for the CPU
+          example: 1
 
+    VM:
+      type: object
+      x-aep-resource: true
+      properties:
+        id:
+          type: string
+          description: ID of the VM
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        name:
+          type: string
+          description: Name of the VM
+          example: "webserver"
+        namespace:
+          type: string
+          description: Namespace of the VM
     Error:
       required:
         - error

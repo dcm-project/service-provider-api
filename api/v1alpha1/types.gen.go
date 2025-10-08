@@ -30,15 +30,6 @@ type Provider struct {
 	Uuid *string `json:"uuid,omitempty"`
 }
 
-// ProviderApplication defines model for ProviderApplication.
-type ProviderApplication struct {
-	// Config Configuration for the Service Provider Application
-	Config *map[string]interface{} `json:"config,omitempty"`
-
-	// Uuid ID of the Application
-	Uuid *string `json:"uuid,omitempty"`
-}
-
 // ProviderList defines model for ProviderList.
 type ProviderList struct {
 	Applications *[]Provider `json:"applications,omitempty"`
@@ -47,5 +38,38 @@ type ProviderList struct {
 	NextPageToken *string `json:"next_page_token,omitempty"`
 }
 
-// CreateApplicationJSONRequestBody defines body for CreateApplication for application/json ContentType.
-type CreateApplicationJSONRequestBody = ProviderApplication
+// VM defines model for VM.
+type VM struct {
+	// Id ID of the VM
+	Id *string `json:"id,omitempty"`
+
+	// Name Name of the VM
+	Name *string `json:"name,omitempty"`
+
+	// Namespace Namespace of the VM
+	Namespace *string `json:"namespace,omitempty"`
+}
+
+// VMRequest defines model for VMRequest.
+type VMRequest struct {
+	// Cpu CPU for the VM
+	Cpu *int `json:"cpu,omitempty"`
+
+	// Id ID of the VM
+	Id *string `json:"id,omitempty"`
+
+	// Name Name of the VM
+	Name *string `json:"name,omitempty"`
+
+	// Namespace Namespace of the VM
+	Namespace *string `json:"namespace,omitempty"`
+
+	// OsImage Base image of the OS
+	OsImage *string `json:"osImage,omitempty"`
+
+	// Ram Ram for the CPU
+	Ram *int `json:"ram,omitempty"`
+}
+
+// CreateVMJSONRequestBody defines body for CreateVM for application/json ContentType.
+type CreateVMJSONRequestBody = VMRequest

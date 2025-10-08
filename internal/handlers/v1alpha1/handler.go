@@ -5,19 +5,16 @@ import (
 
 	"github.com/dcm-project/service-provider-api/internal/api/server"
 	"github.com/dcm-project/service-provider-api/internal/service"
-	"github.com/dcm-project/service-provider-api/internal/store"
 	"go.uber.org/zap"
 )
 
 type ServiceHandler struct {
-	ps    *service.ProviderService
-	store store.Store
+	vmService *service.VMService
 }
 
-func NewServiceHandler(store store.Store, providerService *service.ProviderService) *ServiceHandler {
+func NewServiceHandler(providerService *service.VMService) *ServiceHandler {
 	return &ServiceHandler{
-		store: store,
-		ps:    providerService,
+		vmService: providerService,
 	}
 }
 
@@ -42,14 +39,17 @@ func (s *ServiceHandler) GetProvider(ctx context.Context, request server.GetProv
 	return nil, nil
 }
 
-// CreateApplication (POST /provider/application/{id})
-func (s *ServiceHandler) CreateApplication(ctx context.Context, request server.CreateApplicationRequestObject) (server.CreateApplicationResponseObject, error) {
+// CreateVM (POST /vm/provider/{provider-id}
+func (s *ServiceHandler) CreateVM(ctx context.Context, request server.CreateVMRequestObject) (server.CreateVMResponseObject, error) {
 	logger := zap.S().Named("service-provider")
-	logger.Info("Creating Application. ", "Application: ", request)
+	logger.Info("Creating VM. ", "VM: ", request)
+	vm, err := s.vmService.CreateVM(ctx, request.ProviderId.String(), *request.Body)
+	if err != nil {
+		return nil, err
+	}
 
-	// TODO
-	logger.Info("Application created. ", "Application: ", "app")
-	return nil, nil
+	logger.Info("Successfully created VM. ", "VM: ", *request.Body.Name)
+	return server.CreateVM201JSONResponse{Id: &vm.ID, Name: &vm.RequestInfo.VMName, Namespace: &vm.RequestInfo.Namespace}, nil
 }
 
 // (DELETE /provider/{id})
@@ -57,6 +57,6 @@ func (s *ServiceHandler) DeleteApplication(ctx context.Context, request server.D
 	logger := zap.S().Named("service-provider")
 	logger.Info("Deleting Application. ", "Application: ", request)
 	// TODO
-	logger.Info("Application deleted. ", "Application: ", request.Id)
+	logger.Info("Application deleted. ", "Application: ", request.ProviderId)
 	return nil, nil
 }
