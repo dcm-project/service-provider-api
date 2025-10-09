@@ -23,23 +23,28 @@ func (s *ServiceHandler) ListHealth(ctx context.Context, request server.ListHeal
 	return server.ListHealth200Response{}, nil
 }
 
-// ListProviders (GET /providers)
-func (s *ServiceHandler) ListProviders(ctx context.Context, request server.ListProvidersRequestObject) (server.ListProvidersResponseObject, error) {
+// ListVMProviders ListProviders (GET /vm/providers)
+func (s *ServiceHandler) ListVMProviders(ctx context.Context, request server.ListVMProvidersRequestObject) (server.ListVMProvidersResponseObject, error) {
 	logger := zap.S().Named("service-provider")
-	logger.Info("Listing service providers... ")
-	// TODO
-	return nil, nil
+	logger.Info("Listing vm service providers... ")
+	providers := s.vmService.GetVMProviders(ctx)
+	return server.ListVMProviders200JSONResponse{
+		Providers: providers,
+	}, nil
 }
 
-// GetProvider (GET /provider/{id})
-func (s *ServiceHandler) GetProvider(ctx context.Context, request server.GetProviderRequestObject) (server.GetProviderResponseObject, error) {
+// GetVMProvider GetProvider (GET /vm/provider/{provider-id})
+func (s *ServiceHandler) GetVMProvider(ctx context.Context, request server.GetVMProviderRequestObject) (server.GetVMProviderResponseObject, error) {
 	logger := zap.S().Named("service-provider")
-	logger.Info("Retrieving provider: ", "ID: ", request.Id)
-	// TODO
-	return nil, nil
+	logger.Info("Retrieving provider: ", "ID: ", request.ProviderId)
+	providerInfo, err := s.vmService.GetVMProvider(request.ProviderId.String())
+	if err != nil {
+		return server.GetVMProvider400JSONResponse{}, nil
+	}
+	return providerInfo, nil
 }
 
-// CreateVM (POST /vm/provider/{provider-id}
+// CreateVM (POST /vm/provider/{provider-id}/application
 func (s *ServiceHandler) CreateVM(ctx context.Context, request server.CreateVMRequestObject) (server.CreateVMResponseObject, error) {
 	logger := zap.S().Named("service-provider")
 	logger.Info("Creating VM. ", "VM: ", request)
@@ -48,15 +53,23 @@ func (s *ServiceHandler) CreateVM(ctx context.Context, request server.CreateVMRe
 		return nil, err
 	}
 
-	logger.Info("Successfully created VM. ", "VM: ", *request.Body.Name)
+	logger.Info("Successfully created VM application. ", "VM: ", *request.Body.Name)
 	return server.CreateVM201JSONResponse{Id: &vm.ID, Name: &vm.RequestInfo.VMName, Namespace: &vm.RequestInfo.Namespace}, nil
 }
 
-// (DELETE /provider/{id})
-func (s *ServiceHandler) DeleteApplication(ctx context.Context, request server.DeleteApplicationRequestObject) (server.DeleteApplicationResponseObject, error) {
+// DeleteVM (DELETE /vm/provider/{provider-id})/application
+func (s *ServiceHandler) DeleteVM(ctx context.Context, request server.DeleteVMRequestObject) (server.DeleteVMResponseObject, error) {
 	logger := zap.S().Named("service-provider")
-	logger.Info("Deleting Application. ", "Application: ", request)
-	// TODO
-	logger.Info("Application deleted. ", "Application: ", request.ProviderId)
-	return nil, nil
+	logger.Info("Deleting Application. ", "VM: ", request)
+	appID := request.Params.AppID.String()
+	declaredVM, err := s.vmService.DeleteVMApplication(ctx, request.ProviderId.String(), appID)
+	if err != nil {
+		logger.Error("Failed to Delete VM application")
+		return nil, err
+	}
+	logger.Info("Successfully deleted VM application. ", "VM: ", request.ProviderId)
+	return server.DeleteVM204JSONResponse{
+		Id:        &appID,
+		Name:      &declaredVM.RequestInfo.VMName,
+		Namespace: &declaredVM.RequestInfo.Namespace}, nil
 }

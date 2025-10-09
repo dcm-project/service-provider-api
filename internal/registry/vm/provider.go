@@ -21,6 +21,7 @@ type DeclaredVM struct {
 type Provider interface {
 	Name() string
 	ProviderID() string
+	Description() string
 	CreateVM(ctx context.Context, request Request) (DeclaredVM, error)
 	GetVM(ctx context.Context, vmID string) (DeclaredVM, error)
 	DeleteVM(ctx context.Context, vmID string) (DeclaredVM, error)

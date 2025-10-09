@@ -21,18 +21,18 @@ paths:
         '200':
           description: OK
 
-  /providers:
+  /vm/providers:
     get:
       summary: Get all providers
-      operationId: ListProviders
-      description: List all DCM Service Providers
+      operationId: ListVMProviders
+      description: List all DCM VM Service Providers
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProviderList'
+                $ref: '#/components/schemas/VMProviderList'
         '400':
           description: Bad request
           content:
@@ -46,7 +46,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /vm/provider/{provider-id}:
+  /vm/providers/{provider-id}:
+    get:
+      summary: Get a provider
+      operationId: GetVMProvider
+      description: Get a VM Service Provider
+      parameters:
+        - name: provider-id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VMProvider'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /vm/provider/{provider-id}/application:
     post:
       summary: Create a VM
       operationId: createVM
@@ -85,15 +117,23 @@ paths:
                 $ref: '#/components/schemas/Error'
     delete:
       summary: Delete an application
-      operationId: deleteApplication
+      operationId: deleteVM
       description: Delete a DCM application based on unique ID
       parameters:
+        - name: appID
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
         - name: provider-id
           in: path
           required: true
           schema:
             type: string
             format: uuid
+
+
       responses:
         '204':
           description: No Content
@@ -114,51 +154,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /provider/{id}:
-    get:
-      summary: Get a provider
-      operationId: GetProvider
-      description: Get a Service Provider
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Provider'
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
 
 components:
   schemas:
-    Provider:
+    VMProvider:
       type: object
       x-aep-resource: true
       required:
         - name
-        - serviceType
-        - serviceDescription
-        - config
+        - id
+        - type
+        - description
       properties:
-        uuid:
+        id:
           type: string
           description: Unique identifier for the Service Provider
           example: "123e4567-e89b-12d3-a456-426614174000"
@@ -166,25 +174,22 @@ components:
           type: string
           description: Name of the Service Provider
           example: "kubevirt"
-        serviceType:
+        type:
           type: string
           description: Type of the Service Provider
           example: "vm"
-        serviceDescription:
+        description:
           type: string
           description: Summary of Service Provider
           example: "KubeVirt VM Service Provider"
-        config:
-          type: object
-          description: Configuration for the Service Provider
 
-    ProviderList:
+    VMProviderList:
       type: object
       properties:
-        applications:
+        providers:
           type: array
           items:
-            $ref: '#/components/schemas/Provider'
+            $ref: '#/components/schemas/VMProvider'
         next_page_token:
           type: string
           description: Token for retrieving the next page of results

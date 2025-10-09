@@ -25,3 +25,7 @@ func (r *ProviderRegistry) GetProvider(providerID string) (vm.Provider, error) {
 	}
 	return p, nil
 }
+
+func (r *ProviderRegistry) ListProvider() map[string]vm.Provider {
+	return r.providers
+}

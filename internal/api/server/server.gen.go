@@ -24,32 +24,6 @@ type Error struct {
 	Error string `json:"error"`
 }
 
-// Provider defines model for Provider.
-type Provider struct {
-	// Config Configuration for the Service Provider
-	Config map[string]interface{} `json:"config"`
-
-	// Name Name of the Service Provider
-	Name string `json:"name"`
-
-	// ServiceDescription Summary of Service Provider
-	ServiceDescription string `json:"serviceDescription"`
-
-	// ServiceType Type of the Service Provider
-	ServiceType string `json:"serviceType"`
-
-	// Uuid Unique identifier for the Service Provider
-	Uuid *string `json:"uuid,omitempty"`
-}
-
-// ProviderList defines model for ProviderList.
-type ProviderList struct {
-	Applications *[]Provider `json:"applications,omitempty"`
-
-	// NextPageToken Token for retrieving the next page of results
-	NextPageToken *string `json:"next_page_token,omitempty"`
-}
-
 // VM defines model for VM.
 type VM struct {
 	// Id ID of the VM
@@ -60,6 +34,28 @@ type VM struct {
 
 	// Namespace Namespace of the VM
 	Namespace *string `json:"namespace,omitempty"`
+}
+
+// VMProvider defines model for VMProvider.
+type VMProvider struct {
+	// Description Summary of Service Provider
+	Description string `json:"description"`
+
+	// Id Unique identifier for the Service Provider
+	Id string `json:"id"`
+
+	// Name Name of the Service Provider
+	Name string `json:"name"`
+
+	// Type Type of the Service Provider
+	Type string `json:"type"`
+}
+
+// VMProviderList defines model for VMProviderList.
+type VMProviderList struct {
+	// NextPageToken Token for retrieving the next page of results
+	NextPageToken *string       `json:"next_page_token,omitempty"`
+	Providers     *[]VMProvider `json:"providers,omitempty"`
 }
 
 // VMRequest defines model for VMRequest.
@@ -83,6 +79,11 @@ type VMRequest struct {
 	Ram *int `json:"ram,omitempty"`
 }
 
+// DeleteVMParams defines parameters for DeleteVM.
+type DeleteVMParams struct {
+	AppID *openapi_types.UUID `form:"appID,omitempty" json:"appID,omitempty"`
+}
+
 // CreateVMJSONRequestBody defines body for CreateVM for application/json ContentType.
 type CreateVMJSONRequestBody = VMRequest
 
@@ -91,18 +92,18 @@ type ServerInterface interface {
 	// Health check
 	// (GET /health)
 	ListHealth(w http.ResponseWriter, r *http.Request)
-	// Get a provider
-	// (GET /provider/{id})
-	GetProvider(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
-	// Get all providers
-	// (GET /providers)
-	ListProviders(w http.ResponseWriter, r *http.Request)
 	// Delete an application
-	// (DELETE /vm/provider/{provider-id})
-	DeleteApplication(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
+	// (DELETE /vm/provider/{provider-id}/application)
+	DeleteVM(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID, params DeleteVMParams)
 	// Create a VM
-	// (POST /vm/provider/{provider-id})
+	// (POST /vm/provider/{provider-id}/application)
 	CreateVM(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
+	// Get all providers
+	// (GET /vm/providers)
+	ListVMProviders(w http.ResponseWriter, r *http.Request)
+	// Get a provider
+	// (GET /vm/providers/{provider-id})
+	GetVMProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -115,27 +116,27 @@ func (_ Unimplemented) ListHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Get a provider
-// (GET /provider/{id})
-func (_ Unimplemented) GetProvider(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Get all providers
-// (GET /providers)
-func (_ Unimplemented) ListProviders(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // Delete an application
-// (DELETE /vm/provider/{provider-id})
-func (_ Unimplemented) DeleteApplication(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
+// (DELETE /vm/provider/{provider-id}/application)
+func (_ Unimplemented) DeleteVM(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID, params DeleteVMParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Create a VM
-// (POST /vm/provider/{provider-id})
+// (POST /vm/provider/{provider-id}/application)
 func (_ Unimplemented) CreateVM(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get all providers
+// (GET /vm/providers)
+func (_ Unimplemented) ListVMProviders(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get a provider
+// (GET /vm/providers/{provider-id})
+func (_ Unimplemented) GetVMProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -163,49 +164,8 @@ func (siw *ServerInterfaceWrapper) ListHealth(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// GetProvider operation middleware
-func (siw *ServerInterfaceWrapper) GetProvider(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	var err error
-
-	// ------------- Path parameter "id" -------------
-	var id openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetProvider(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r.WithContext(ctx))
-}
-
-// ListProviders operation middleware
-func (siw *ServerInterfaceWrapper) ListProviders(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListProviders(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r.WithContext(ctx))
-}
-
-// DeleteApplication operation middleware
-func (siw *ServerInterfaceWrapper) DeleteApplication(w http.ResponseWriter, r *http.Request) {
+// DeleteVM operation middleware
+func (siw *ServerInterfaceWrapper) DeleteVM(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var err error
@@ -219,8 +179,19 @@ func (siw *ServerInterfaceWrapper) DeleteApplication(w http.ResponseWriter, r *h
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteVMParams
+
+	// ------------- Optional query parameter "appID" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "appID", r.URL.Query(), &params.AppID)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "appID", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteApplication(w, r, providerId)
+		siw.Handler.DeleteVM(w, r, providerId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -247,6 +218,47 @@ func (siw *ServerInterfaceWrapper) CreateVM(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateVM(w, r, providerId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// ListVMProviders operation middleware
+func (siw *ServerInterfaceWrapper) ListVMProviders(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListVMProviders(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// GetVMProvider operation middleware
+func (siw *ServerInterfaceWrapper) GetVMProvider(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "provider-id" -------------
+	var providerId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider-id", chi.URLParam(r, "provider-id"), &providerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider-id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetVMProvider(w, r, providerId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -373,16 +385,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/health", wrapper.ListHealth)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/provider/{id}", wrapper.GetProvider)
+		r.Delete(options.BaseURL+"/vm/provider/{provider-id}/application", wrapper.DeleteVM)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/providers", wrapper.ListProviders)
+		r.Post(options.BaseURL+"/vm/provider/{provider-id}/application", wrapper.CreateVM)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/vm/provider/{provider-id}", wrapper.DeleteApplication)
+		r.Get(options.BaseURL+"/vm/providers", wrapper.ListVMProviders)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/vm/provider/{provider-id}", wrapper.CreateVM)
+		r.Get(options.BaseURL+"/vm/providers/{provider-id}", wrapper.GetVMProvider)
 	})
 
 	return r
@@ -403,104 +415,36 @@ func (response ListHealth200Response) VisitListHealthResponse(w http.ResponseWri
 	return nil
 }
 
-type GetProviderRequestObject struct {
-	Id openapi_types.UUID `json:"id"`
-}
-
-type GetProviderResponseObject interface {
-	VisitGetProviderResponse(w http.ResponseWriter) error
-}
-
-type GetProvider200JSONResponse Provider
-
-func (response GetProvider200JSONResponse) VisitGetProviderResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetProvider400JSONResponse Error
-
-func (response GetProvider400JSONResponse) VisitGetProviderResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetProvider500JSONResponse Error
-
-func (response GetProvider500JSONResponse) VisitGetProviderResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListProvidersRequestObject struct {
-}
-
-type ListProvidersResponseObject interface {
-	VisitListProvidersResponse(w http.ResponseWriter) error
-}
-
-type ListProviders200JSONResponse ProviderList
-
-func (response ListProviders200JSONResponse) VisitListProvidersResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListProviders400JSONResponse Error
-
-func (response ListProviders400JSONResponse) VisitListProvidersResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListProviders500JSONResponse Error
-
-func (response ListProviders500JSONResponse) VisitListProvidersResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type DeleteApplicationRequestObject struct {
+type DeleteVMRequestObject struct {
 	ProviderId openapi_types.UUID `json:"provider-id"`
+	Params     DeleteVMParams
 }
 
-type DeleteApplicationResponseObject interface {
-	VisitDeleteApplicationResponse(w http.ResponseWriter) error
+type DeleteVMResponseObject interface {
+	VisitDeleteVMResponse(w http.ResponseWriter) error
 }
 
-type DeleteApplication204JSONResponse VM
+type DeleteVM204JSONResponse VM
 
-func (response DeleteApplication204JSONResponse) VisitDeleteApplicationResponse(w http.ResponseWriter) error {
+func (response DeleteVM204JSONResponse) VisitDeleteVMResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(204)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type DeleteApplication400JSONResponse Error
+type DeleteVM400JSONResponse Error
 
-func (response DeleteApplication400JSONResponse) VisitDeleteApplicationResponse(w http.ResponseWriter) error {
+func (response DeleteVM400JSONResponse) VisitDeleteVMResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type DeleteApplication500JSONResponse Error
+type DeleteVM500JSONResponse Error
 
-func (response DeleteApplication500JSONResponse) VisitDeleteApplicationResponse(w http.ResponseWriter) error {
+func (response DeleteVM500JSONResponse) VisitDeleteVMResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -543,23 +487,92 @@ func (response CreateVM500JSONResponse) VisitCreateVMResponse(w http.ResponseWri
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListVMProvidersRequestObject struct {
+}
+
+type ListVMProvidersResponseObject interface {
+	VisitListVMProvidersResponse(w http.ResponseWriter) error
+}
+
+type ListVMProviders200JSONResponse VMProviderList
+
+func (response ListVMProviders200JSONResponse) VisitListVMProvidersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListVMProviders400JSONResponse Error
+
+func (response ListVMProviders400JSONResponse) VisitListVMProvidersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListVMProviders500JSONResponse Error
+
+func (response ListVMProviders500JSONResponse) VisitListVMProvidersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetVMProviderRequestObject struct {
+	ProviderId openapi_types.UUID `json:"provider-id"`
+}
+
+type GetVMProviderResponseObject interface {
+	VisitGetVMProviderResponse(w http.ResponseWriter) error
+}
+
+type GetVMProvider200JSONResponse VMProvider
+
+func (response GetVMProvider200JSONResponse) VisitGetVMProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetVMProvider400JSONResponse Error
+
+func (response GetVMProvider400JSONResponse) VisitGetVMProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetVMProvider500JSONResponse Error
+
+func (response GetVMProvider500JSONResponse) VisitGetVMProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Health check
 	// (GET /health)
 	ListHealth(ctx context.Context, request ListHealthRequestObject) (ListHealthResponseObject, error)
-	// Get a provider
-	// (GET /provider/{id})
-	GetProvider(ctx context.Context, request GetProviderRequestObject) (GetProviderResponseObject, error)
-	// Get all providers
-	// (GET /providers)
-	ListProviders(ctx context.Context, request ListProvidersRequestObject) (ListProvidersResponseObject, error)
 	// Delete an application
-	// (DELETE /vm/provider/{provider-id})
-	DeleteApplication(ctx context.Context, request DeleteApplicationRequestObject) (DeleteApplicationResponseObject, error)
+	// (DELETE /vm/provider/{provider-id}/application)
+	DeleteVM(ctx context.Context, request DeleteVMRequestObject) (DeleteVMResponseObject, error)
 	// Create a VM
-	// (POST /vm/provider/{provider-id})
+	// (POST /vm/provider/{provider-id}/application)
 	CreateVM(ctx context.Context, request CreateVMRequestObject) (CreateVMResponseObject, error)
+	// Get all providers
+	// (GET /vm/providers)
+	ListVMProviders(ctx context.Context, request ListVMProvidersRequestObject) (ListVMProvidersResponseObject, error)
+	// Get a provider
+	// (GET /vm/providers/{provider-id})
+	GetVMProvider(ctx context.Context, request GetVMProviderRequestObject) (GetVMProviderResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -615,75 +628,26 @@ func (sh *strictHandler) ListHealth(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetProvider operation middleware
-func (sh *strictHandler) GetProvider(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
-	var request GetProviderRequestObject
-
-	request.Id = id
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetProvider(ctx, request.(GetProviderRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetProvider")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetProviderResponseObject); ok {
-		if err := validResponse.VisitGetProviderResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// ListProviders operation middleware
-func (sh *strictHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
-	var request ListProvidersRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListProviders(ctx, request.(ListProvidersRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListProviders")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListProvidersResponseObject); ok {
-		if err := validResponse.VisitListProvidersResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// DeleteApplication operation middleware
-func (sh *strictHandler) DeleteApplication(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
-	var request DeleteApplicationRequestObject
+// DeleteVM operation middleware
+func (sh *strictHandler) DeleteVM(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID, params DeleteVMParams) {
+	var request DeleteVMRequestObject
 
 	request.ProviderId = providerId
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.DeleteApplication(ctx, request.(DeleteApplicationRequestObject))
+		return sh.ssi.DeleteVM(ctx, request.(DeleteVMRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeleteApplication")
+		handler = middleware(handler, "DeleteVM")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(DeleteApplicationResponseObject); ok {
-		if err := validResponse.VisitDeleteApplicationResponse(w); err != nil {
+	} else if validResponse, ok := response.(DeleteVMResponseObject); ok {
+		if err := validResponse.VisitDeleteVMResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -717,6 +681,56 @@ func (sh *strictHandler) CreateVM(w http.ResponseWriter, r *http.Request, provid
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreateVMResponseObject); ok {
 		if err := validResponse.VisitCreateVMResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListVMProviders operation middleware
+func (sh *strictHandler) ListVMProviders(w http.ResponseWriter, r *http.Request) {
+	var request ListVMProvidersRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListVMProviders(ctx, request.(ListVMProvidersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListVMProviders")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListVMProvidersResponseObject); ok {
+		if err := validResponse.VisitListVMProvidersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetVMProvider operation middleware
+func (sh *strictHandler) GetVMProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
+	var request GetVMProviderRequestObject
+
+	request.ProviderId = providerId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetVMProvider(ctx, request.(GetVMProviderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetVMProvider")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetVMProviderResponseObject); ok {
+		if err := validResponse.VisitGetVMProviderResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

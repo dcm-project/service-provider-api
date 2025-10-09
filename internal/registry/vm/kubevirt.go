@@ -39,6 +39,10 @@ func (k *KubeVirtProvider) ProviderID() string {
 	return "94969e49-3804-4eb6-b6b6-6473fe2f42df"
 }
 
+func (k *KubeVirtProvider) Description() string {
+	return "KubeVirt VM Service Provider"
+}
+
 func (k *KubeVirtProvider) CreateVM(ctx context.Context, request Request) (DeclaredVM, error) {
 	logger := zap.S().Named("kubevirt:create_vm")
 
