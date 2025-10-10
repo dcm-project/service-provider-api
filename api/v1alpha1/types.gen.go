@@ -33,6 +33,9 @@ type VMProvider struct {
 	// Description Summary of Service Provider
 	Description string `json:"description"`
 
+	// Endpoint API of the Service Provider
+	Endpoint string `json:"endpoint"`
+
 	// Id Unique identifier for the Service Provider
 	Id string `json:"id"`
 
@@ -75,6 +78,9 @@ type VMRequest struct {
 type DeleteVMParams struct {
 	AppID *openapi_types.UUID `form:"appID,omitempty" json:"appID,omitempty"`
 }
+
+// CreateVMProviderJSONRequestBody defines body for CreateVMProvider for application/json ContentType.
+type CreateVMProviderJSONRequestBody = VMProvider
 
 // CreateVMJSONRequestBody defines body for CreateVM for application/json ContentType.
 type CreateVMJSONRequestBody = VMRequest

@@ -7,12 +7,11 @@ import (
 
 type Provider struct {
 	gorm.Model
-	ID                 uuid.UUID `gorm:"primaryKey;"`
-	Name               string    `gorm:"name;not null"`
-	ServiceType        string    `gorm:"not null"`
-	ServiceDescription string    `gorm:"not null"`
-	// TODO
-	//Config        object            `gorm:"config;not null"`
+	ID           uuid.UUID `gorm:"primaryKey;"`
+	Name         string    `gorm:"name;not null"`
+	ProviderType string    `gorm:"providertype;not null"`
+	Description  string    `gorm:"description;not null"`
+	Endpoint     string    `gorm:"endpoint;not null"`
 }
 
 type ProviderList []Provider

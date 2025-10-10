@@ -41,6 +41,9 @@ type VMProvider struct {
 	// Description Summary of Service Provider
 	Description string `json:"description"`
 
+	// Endpoint API of the Service Provider
+	Endpoint string `json:"endpoint"`
+
 	// Id Unique identifier for the Service Provider
 	Id string `json:"id"`
 
@@ -84,6 +87,9 @@ type DeleteVMParams struct {
 	AppID *openapi_types.UUID `form:"appID,omitempty" json:"appID,omitempty"`
 }
 
+// CreateVMProviderJSONRequestBody defines body for CreateVMProvider for application/json ContentType.
+type CreateVMProviderJSONRequestBody = VMProvider
+
 // CreateVMJSONRequestBody defines body for CreateVM for application/json ContentType.
 type CreateVMJSONRequestBody = VMRequest
 
@@ -92,17 +98,20 @@ type ServerInterface interface {
 	// Health check
 	// (GET /health)
 	ListHealth(w http.ResponseWriter, r *http.Request)
+	// Register VM Service Providers
+	// (POST /provider/registration)
+	CreateVMProvider(w http.ResponseWriter, r *http.Request)
 	// Delete an application
-	// (DELETE /vm/provider/{provider-id}/application)
+	// (DELETE /provider/{provider-id}/application)
 	DeleteVM(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID, params DeleteVMParams)
 	// Create a VM
-	// (POST /vm/provider/{provider-id}/application)
+	// (POST /provider/{provider-id}/application)
 	CreateVM(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
 	// Get all providers
-	// (GET /vm/providers)
+	// (GET /providers)
 	ListVMProviders(w http.ResponseWriter, r *http.Request)
 	// Get a provider
-	// (GET /vm/providers/{provider-id})
+	// (GET /providers/{provider-id})
 	GetVMProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
 }
 
@@ -116,26 +125,32 @@ func (_ Unimplemented) ListHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Register VM Service Providers
+// (POST /provider/registration)
+func (_ Unimplemented) CreateVMProvider(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Delete an application
-// (DELETE /vm/provider/{provider-id}/application)
+// (DELETE /provider/{provider-id}/application)
 func (_ Unimplemented) DeleteVM(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID, params DeleteVMParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Create a VM
-// (POST /vm/provider/{provider-id}/application)
+// (POST /provider/{provider-id}/application)
 func (_ Unimplemented) CreateVM(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get all providers
-// (GET /vm/providers)
+// (GET /providers)
 func (_ Unimplemented) ListVMProviders(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get a provider
-// (GET /vm/providers/{provider-id})
+// (GET /providers/{provider-id})
 func (_ Unimplemented) GetVMProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
@@ -155,6 +170,21 @@ func (siw *ServerInterfaceWrapper) ListHealth(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListHealth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// CreateVMProvider operation middleware
+func (siw *ServerInterfaceWrapper) CreateVMProvider(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateVMProvider(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -385,16 +415,19 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/health", wrapper.ListHealth)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/vm/provider/{provider-id}/application", wrapper.DeleteVM)
+		r.Post(options.BaseURL+"/provider/registration", wrapper.CreateVMProvider)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/vm/provider/{provider-id}/application", wrapper.CreateVM)
+		r.Delete(options.BaseURL+"/provider/{provider-id}/application", wrapper.DeleteVM)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/vm/providers", wrapper.ListVMProviders)
+		r.Post(options.BaseURL+"/provider/{provider-id}/application", wrapper.CreateVM)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/vm/providers/{provider-id}", wrapper.GetVMProvider)
+		r.Get(options.BaseURL+"/providers", wrapper.ListVMProviders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/providers/{provider-id}", wrapper.GetVMProvider)
 	})
 
 	return r
@@ -413,6 +446,41 @@ type ListHealth200Response struct {
 func (response ListHealth200Response) VisitListHealthResponse(w http.ResponseWriter) error {
 	w.WriteHeader(200)
 	return nil
+}
+
+type CreateVMProviderRequestObject struct {
+	Body *CreateVMProviderJSONRequestBody
+}
+
+type CreateVMProviderResponseObject interface {
+	VisitCreateVMProviderResponse(w http.ResponseWriter) error
+}
+
+type CreateVMProvider201JSONResponse VMProvider
+
+func (response CreateVMProvider201JSONResponse) VisitCreateVMProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateVMProvider400JSONResponse Error
+
+func (response CreateVMProvider400JSONResponse) VisitCreateVMProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateVMProvider500JSONResponse Error
+
+func (response CreateVMProvider500JSONResponse) VisitCreateVMProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
 }
 
 type DeleteVMRequestObject struct {
@@ -561,17 +629,20 @@ type StrictServerInterface interface {
 	// Health check
 	// (GET /health)
 	ListHealth(ctx context.Context, request ListHealthRequestObject) (ListHealthResponseObject, error)
+	// Register VM Service Providers
+	// (POST /provider/registration)
+	CreateVMProvider(ctx context.Context, request CreateVMProviderRequestObject) (CreateVMProviderResponseObject, error)
 	// Delete an application
-	// (DELETE /vm/provider/{provider-id}/application)
+	// (DELETE /provider/{provider-id}/application)
 	DeleteVM(ctx context.Context, request DeleteVMRequestObject) (DeleteVMResponseObject, error)
 	// Create a VM
-	// (POST /vm/provider/{provider-id}/application)
+	// (POST /provider/{provider-id}/application)
 	CreateVM(ctx context.Context, request CreateVMRequestObject) (CreateVMResponseObject, error)
 	// Get all providers
-	// (GET /vm/providers)
+	// (GET /providers)
 	ListVMProviders(ctx context.Context, request ListVMProvidersRequestObject) (ListVMProvidersResponseObject, error)
 	// Get a provider
-	// (GET /vm/providers/{provider-id})
+	// (GET /providers/{provider-id})
 	GetVMProvider(ctx context.Context, request GetVMProviderRequestObject) (GetVMProviderResponseObject, error)
 }
 
@@ -621,6 +692,37 @@ func (sh *strictHandler) ListHealth(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListHealthResponseObject); ok {
 		if err := validResponse.VisitListHealthResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateVMProvider operation middleware
+func (sh *strictHandler) CreateVMProvider(w http.ResponseWriter, r *http.Request) {
+	var request CreateVMProviderRequestObject
+
+	var body CreateVMProviderJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateVMProvider(ctx, request.(CreateVMProviderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateVMProvider")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateVMProviderResponseObject); ok {
+		if err := validResponse.VisitCreateVMProviderResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

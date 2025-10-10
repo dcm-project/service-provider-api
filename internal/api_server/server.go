@@ -15,12 +15,11 @@ import (
 	"github.com/dcm-project/service-provider-api/internal/api/server"
 	"github.com/dcm-project/service-provider-api/internal/config"
 	handlers "github.com/dcm-project/service-provider-api/internal/handlers/v1alpha1"
-	"github.com/dcm-project/service-provider-api/internal/registry"
-	"github.com/dcm-project/service-provider-api/internal/registry/vm"
 	"github.com/dcm-project/service-provider-api/internal/service"
 	"github.com/dcm-project/service-provider-api/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-resty/resty/v2"
 	oapimiddleware "github.com/oapi-codegen/nethttp-middleware"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"go.uber.org/zap"
@@ -90,13 +89,12 @@ func (s *Server) Run(ctx context.Context) error {
 			return
 		}
 	})
-
-	providerRegistry := registry.NewRegistry()
-	providerRegistry.RegisterProvider(vm.NewKubeVirtProvider())
+	restyClient := resty.New()
 
 	h := handlers.NewServiceHandler(
 		service.NewVMService(
-			providerRegistry,
+			s.store,
+			restyClient,
 		),
 	)
 
