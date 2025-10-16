@@ -9,96 +9,91 @@ import (
 )
 
 type ServiceHandler struct {
-	vmService *service.VMService
+	providerService *service.ProviderService
 }
 
-func NewServiceHandler(providerService *service.VMService) *ServiceHandler {
+func NewServiceHandler(providerService *service.ProviderService) *ServiceHandler {
 	return &ServiceHandler{
-		vmService: providerService,
+		providerService: providerService,
 	}
 }
 
-// (GET /health)
+// ListHealth (GET /health)
 func (s *ServiceHandler) ListHealth(ctx context.Context, request server.ListHealthRequestObject) (server.ListHealthResponseObject, error) {
 	return server.ListHealth200Response{}, nil
 }
 
-// CreateVMProvider (POST /provider/registration)
-func (s *ServiceHandler) CreateVMProvider(ctx context.Context, request server.CreateVMProviderRequestObject) (server.CreateVMProviderResponseObject, error) {
-	logger := zap.S().Named("handler")
-	logger.Info("Registering VM service provider")
+// ListProviders (GET /providers)
+func (s *ServiceHandler) ListProviders(ctx context.Context, request server.ListProvidersRequestObject) (server.ListProvidersResponseObject, error) {
+	logger := zap.S().Named("handler:listProviders")
+	logger.Info("Retrieving service providers... ")
 
-	newProvider := request.Body
-	err := s.vmService.RegisterProvider(ctx, newProvider)
+	//TODO implement filter by type
+
+	providers, err := s.providerService.ListProvider(ctx)
 	if err != nil {
 		return nil, err
 	}
+	return server.ListProviders200JSONResponse{
+		Providers: providers,
+	}, nil
+}
 
-	return server.CreateVMProvider201JSONResponse{
+// CreateProvider (POST /provider/{providerId})
+func (s *ServiceHandler) CreateProvider(ctx context.Context, request server.CreateProviderRequestObject) (server.CreateProviderResponseObject, error) {
+	logger := zap.S().Named("handler:createProvider")
+	logger.Info("Creating new service provider")
+
+	newProvider := request.Body
+	err := s.providerService.CreateProvider(ctx, newProvider)
+	if err != nil {
+		return server.CreateProvider400JSONResponse{Error: err.Error()}, nil
+	}
+
+	return server.CreateProvider201JSONResponse{
 		Description: newProvider.Description,
 		Endpoint:    newProvider.Endpoint,
 		Id:          newProvider.Id,
 		Name:        newProvider.Name,
 		Type:        newProvider.Type,
+		Operations:  newProvider.Operations,
+		ApiHost:     newProvider.ApiHost,
 	}, nil
 }
 
-// ListVMProviders ListProviders (GET /providers)
-func (s *ServiceHandler) ListVMProviders(ctx context.Context, request server.ListVMProvidersRequestObject) (server.ListVMProvidersResponseObject, error) {
-	logger := zap.S().Named("handler")
-	logger.Info("Listing vm service providers... ")
-	providers, err := s.vmService.ListProvider(ctx)
+// GetProvider (GET /provider/{providerId})
+func (s *ServiceHandler) GetProvider(ctx context.Context, request server.GetProviderRequestObject) (server.GetProviderResponseObject, error) {
+	logger := zap.S().Named("handler:getProvider")
+	logger.Info("Retrieving provider details: ", "ID: ", request.ProviderId)
+	providerInfo, err := s.providerService.GetProvider(ctx, request.ProviderId.String())
 	if err != nil {
-		return nil, err
+		return server.GetProvider400JSONResponse{Error: err.Error()}, nil
 	}
-	return server.ListVMProviders200JSONResponse{
-		Providers: providers,
-	}, nil
-}
-
-// GetVMProvider GetProvider (GET /provider/{provider-id})
-func (s *ServiceHandler) GetVMProvider(ctx context.Context, request server.GetVMProviderRequestObject) (server.GetVMProviderResponseObject, error) {
-	logger := zap.S().Named("service-provider")
-	logger.Info("Retrieving provider: ", "ID: ", request.ProviderId)
-	providerInfo, err := s.vmService.GetProvider(ctx, request.ProviderId.String())
-	if err != nil {
-		return server.GetVMProvider400JSONResponse{}, err
-	}
-	return server.GetVMProvider200JSONResponse{
+	return server.GetProvider200JSONResponse{
 		Description: providerInfo.Description,
 		Endpoint:    providerInfo.Endpoint,
-		Id:          providerInfo.ProviderID,
+		Id:          providerInfo.Id,
 		Name:        providerInfo.Name,
 		Type:        providerInfo.Type,
 	}, nil
 }
 
-// CreateVM (POST /provider/{provider-id}/application
-func (s *ServiceHandler) CreateVM(ctx context.Context, request server.CreateVMRequestObject) (server.CreateVMResponseObject, error) {
-	logger := zap.S().Named("service-provider")
-	logger.Info("Creating VM. ", "VM: ", request)
-	vm, err := s.vmService.CreateVM(ctx, request.ProviderId.String(), *request.Body)
-	if err != nil {
-		return nil, err
-	}
+// ApplyProvider (PUT /provider/{providerId}
+func (s *ServiceHandler) ApplyProvider(ctx context.Context, request server.ApplyProviderRequestObject) (server.ApplyProviderResponseObject, error) {
+	logger := zap.S().Named("handler:applyProvider")
+	logger.Info("Updating provider details: ", "ID: ", request.ProviderId)
 
-	logger.Info("Successfully created VM application. ", "VM: ", *request.Body.Name)
-	return server.CreateVM201JSONResponse{Id: &vm.ID, Name: &vm.RequestInfo.VMName, Namespace: &vm.RequestInfo.Namespace}, nil
+	// TODO
+
+	return nil, nil
 }
 
-// DeleteVM (DELETE /provider/{provider-id})/application
-func (s *ServiceHandler) DeleteVM(ctx context.Context, request server.DeleteVMRequestObject) (server.DeleteVMResponseObject, error) {
-	logger := zap.S().Named("service-provider")
-	logger.Info("Deleting Application. ", "VM: ", request)
-	appID := request.Params.AppID.String()
-	declaredVM, err := s.vmService.DeleteVMApplication(ctx, request.ProviderId.String(), appID)
-	if err != nil {
-		logger.Error("Failed to Delete VM application")
-		return nil, err
-	}
-	logger.Info("Successfully deleted VM application. ", "VM: ", request.ProviderId)
-	return server.DeleteVM204JSONResponse{
-		Id:        &appID,
-		Name:      &declaredVM.RequestInfo.VMName,
-		Namespace: &declaredVM.RequestInfo.Namespace}, nil
+// DeleteProvider (DELETE /provider/{providerId})
+func (s *ServiceHandler) DeleteProvider(ctx context.Context, request server.DeleteProviderRequestObject) (server.DeleteProviderResponseObject, error) {
+	logger := zap.S().Named("handler:deleteProvider")
+	logger.Info("Deleting provider: ", "ID: ", request.ProviderId)
+
+	// TODO
+
+	return nil, nil
 }

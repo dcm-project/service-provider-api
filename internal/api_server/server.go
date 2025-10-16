@@ -92,7 +92,7 @@ func (s *Server) Run(ctx context.Context) error {
 	restyClient := resty.New()
 
 	h := handlers.NewServiceHandler(
-		service.NewVMService(
+		service.NewProviderService(
 			s.store,
 			restyClient,
 		),

@@ -21,49 +21,24 @@ paths:
         '200':
           description: OK
 
-  /provider/registration:
-    post:
-      summary: Register VM Service Providers
-      operationId: CreateVMProvider
-      description: Register Virtual Machine Service Providers
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VMProvider'
-      responses:
-        '201':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VMProvider'
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
   /providers:
     get:
-      summary: Get all providers
-      operationId: ListVMProviders
-      description: List all DCM VM Service Providers
+      summary: List all providers
+      operationId: ListProviders
+      description: List all DCM Service Providers with filter by type
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VMProviderList'
+                $ref: '#/components/schemas/ProviderList'
         '400':
           description: Bad request
           content:
@@ -77,13 +52,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /providers/{provider-id}:
+  /provider/{providerId}:
     get:
       summary: Get a provider
-      operationId: GetVMProvider
-      description: Get a VM Service Provider
+      operationId: GetProvider
+      description: Get a service provider based on unique ID
       parameters:
-        - name: provider-id
+        - name: providerId
           in: path
           required: true
           schema:
@@ -95,7 +70,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VMProvider'
+                $ref: '#/components/schemas/Provider'
         '400':
           description: Bad request
           content:
@@ -108,14 +83,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-
-  /provider/{provider-id}/application:
     post:
-      summary: Create a VM
-      operationId: CreateVM
-      description: Create an application based on service provider
+      summary: Create a Service Provider
+      operationId: CreateProvider
+      description: Create a new service provider
       parameters:
-        - name: provider-id
+        - name: providerId
           in: path
           required: true
           schema:
@@ -126,14 +99,50 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/VMRequest'
+              $ref: '#/components/schemas/Provider'
       responses:
         '201':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VM'
+                $ref: '#/components/schemas/Provider'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: Update a Service Provider
+      operationId: ApplyProvider
+      description: Update an existing service provider
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Provider'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Provider'
         '400':
           description: Bad request
           content:
@@ -147,31 +156,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     delete:
-      summary: Delete an application
-      operationId: DeleteVM
-      description: Delete a DCM application based on unique ID
+      summary: Delete a service Provider
+      operationId: DeleteProvider
+      description: Delete a service provider
       parameters:
-        - name: appID
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-        - name: provider-id
+        - name: providerId
           in: path
           required: true
           schema:
             type: string
             format: uuid
-
-
       responses:
         '204':
-          description: No Content
+          description: No content
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VM'
+                $ref: '#/components/schemas/Provider'
         '400':
           description: Bad request
           content:
@@ -187,7 +188,7 @@ paths:
 
 components:
   schemas:
-    VMProvider:
+    Provider:
       type: object
       x-aep-resource: true
       required:
@@ -195,7 +196,9 @@ components:
         - id
         - type
         - description
+        - apiHost
         - endpoint
+        - operations
       properties:
         id:
           type: string
@@ -205,74 +208,45 @@ components:
           type: string
           description: Name of the Service Provider
           example: "kubevirt"
+        apiHost:
+          type: string
+          description: Host URL for the provider API
+          example: http://localhost:8080
         endpoint:
           type: string
-          description: API of the Service Provider
-          example: "http://localhost:8080"
+          description: Endpoint of the Service Provider
+          example: "/v1/vm"
         type:
           type: string
           description: Type of the Service Provider
-          example: "vm"
+          example: "virtual_machine"
+          enum:
+            - "virtual_machine"
+            - "database"
+            - "container"
         description:
           type: string
           description: Summary of Service Provider
-          example: "KubeVirt VM Service Provider"
+          example: "KubeVirt Virtual Machine Service Provider"
+        operations:
+          type: array
+          items:
+            type: string
+          description: Operations performed on the provider endpoint
+          example: ["GET", "PUT", "POST", "DELETE"]
 
-    VMProviderList:
+    ProviderList:
       type: object
       properties:
         providers:
           type: array
           items:
-            $ref: '#/components/schemas/VMProvider'
+            $ref: '#/components/schemas/Provider'
         next_page_token:
           type: string
           description: Token for retrieving the next page of results
           example: "eyJpZCI6IjEyM2U0NTY3LWU4OWItMTJkMy1hNDU2LTQyNjYxNDE3NDAwMCJ9"
 
-    VMRequest:
-      type: object
-      x-aep-resource: true
-      properties:
-        id:
-          type: string
-          description: ID of the VM
-          example: "123e4567-e89b-12d3-a456-426614174000"
-        name:
-          type: string
-          description: Name of the VM
-          example: "webserver"
-        namespace:
-          type: string
-          description: Namespace of the VM
-        osImage:
-          type: string
-          description: Base image of the OS
-          example: "quay.io/containerdisks/fedora:latest"
-        cpu:
-          type: integer
-          description: CPU for the VM
-          example: 1
-        ram:
-          type: integer
-          description: Ram for the CPU
-          example: 1
-
-    VM:
-      type: object
-      x-aep-resource: true
-      properties:
-        id:
-          type: string
-          description: ID of the VM
-          example: "123e4567-e89b-12d3-a456-426614174000"
-        name:
-          type: string
-          description: Name of the VM
-          example: "webserver"
-        namespace:
-          type: string
-          description: Namespace of the VM
     Error:
       required:
         - error

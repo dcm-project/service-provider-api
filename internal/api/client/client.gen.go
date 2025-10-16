@@ -94,24 +94,24 @@ type ClientInterface interface {
 	// ListHealth request
 	ListHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateVMProviderWithBody request with any body
-	CreateVMProviderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// DeleteProvider request
+	DeleteProvider(ctx context.Context, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateVMProvider(ctx context.Context, body CreateVMProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetProvider request
+	GetProvider(ctx context.Context, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DeleteVM request
-	DeleteVM(ctx context.Context, providerId openapi_types.UUID, params *DeleteVMParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// CreateProviderWithBody request with any body
+	CreateProviderWithBody(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateVMWithBody request with any body
-	CreateVMWithBody(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateProvider(ctx context.Context, providerId openapi_types.UUID, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateVM(ctx context.Context, providerId openapi_types.UUID, body CreateVMJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ApplyProviderWithBody request with any body
+	ApplyProviderWithBody(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListVMProviders request
-	ListVMProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ApplyProvider(ctx context.Context, providerId openapi_types.UUID, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetVMProvider request
-	GetVMProvider(ctx context.Context, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListProviders request
+	ListProviders(ctx context.Context, params *ListProvidersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) ListHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -126,8 +126,8 @@ func (c *Client) ListHealth(ctx context.Context, reqEditors ...RequestEditorFn) 
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateVMProviderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateVMProviderRequestWithBody(c.Server, contentType, body)
+func (c *Client) DeleteProvider(ctx context.Context, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteProviderRequest(c.Server, providerId)
 	if err != nil {
 		return nil, err
 	}
@@ -138,8 +138,8 @@ func (c *Client) CreateVMProviderWithBody(ctx context.Context, contentType strin
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateVMProvider(ctx context.Context, body CreateVMProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateVMProviderRequest(c.Server, body)
+func (c *Client) GetProvider(ctx context.Context, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProviderRequest(c.Server, providerId)
 	if err != nil {
 		return nil, err
 	}
@@ -150,8 +150,8 @@ func (c *Client) CreateVMProvider(ctx context.Context, body CreateVMProviderJSON
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteVM(ctx context.Context, providerId openapi_types.UUID, params *DeleteVMParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteVMRequest(c.Server, providerId, params)
+func (c *Client) CreateProviderWithBody(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProviderRequestWithBody(c.Server, providerId, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -162,8 +162,8 @@ func (c *Client) DeleteVM(ctx context.Context, providerId openapi_types.UUID, pa
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateVMWithBody(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateVMRequestWithBody(c.Server, providerId, contentType, body)
+func (c *Client) CreateProvider(ctx context.Context, providerId openapi_types.UUID, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProviderRequest(c.Server, providerId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -174,8 +174,8 @@ func (c *Client) CreateVMWithBody(ctx context.Context, providerId openapi_types.
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateVM(ctx context.Context, providerId openapi_types.UUID, body CreateVMJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateVMRequest(c.Server, providerId, body)
+func (c *Client) ApplyProviderWithBody(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApplyProviderRequestWithBody(c.Server, providerId, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -186,8 +186,8 @@ func (c *Client) CreateVM(ctx context.Context, providerId openapi_types.UUID, bo
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListVMProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListVMProvidersRequest(c.Server)
+func (c *Client) ApplyProvider(ctx context.Context, providerId openapi_types.UUID, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApplyProviderRequest(c.Server, providerId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -198,8 +198,8 @@ func (c *Client) ListVMProviders(ctx context.Context, reqEditors ...RequestEdito
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetVMProvider(ctx context.Context, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetVMProviderRequest(c.Server, providerId)
+func (c *Client) ListProviders(ctx context.Context, params *ListProvidersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProvidersRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -237,53 +237,13 @@ func NewListHealthRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewCreateVMProviderRequest calls the generic CreateVMProvider builder with application/json body
-func NewCreateVMProviderRequest(server string, body CreateVMProviderJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateVMProviderRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateVMProviderRequestWithBody generates requests for CreateVMProvider with any type of body
-func NewCreateVMProviderRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/provider/registration")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewDeleteVMRequest generates requests for DeleteVM
-func NewDeleteVMRequest(server string, providerId openapi_types.UUID, params *DeleteVMParams) (*http.Request, error) {
+// NewDeleteProviderRequest generates requests for DeleteProvider
+func NewDeleteProviderRequest(server string, providerId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "provider-id", runtime.ParamLocationPath, providerId)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "providerId", runtime.ParamLocationPath, providerId)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +253,7 @@ func NewDeleteVMRequest(server string, providerId openapi_types.UUID, params *De
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/provider/%s/application", pathParam0)
+	operationPath := fmt.Sprintf("/provider/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -301,28 +261,6 @@ func NewDeleteVMRequest(server string, providerId openapi_types.UUID, params *De
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.AppID != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "appID", runtime.ParamLocationQuery, *params.AppID); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
@@ -333,24 +271,13 @@ func NewDeleteVMRequest(server string, providerId openapi_types.UUID, params *De
 	return req, nil
 }
 
-// NewCreateVMRequest calls the generic CreateVM builder with application/json body
-func NewCreateVMRequest(server string, providerId openapi_types.UUID, body CreateVMJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateVMRequestWithBody(server, providerId, "application/json", bodyReader)
-}
-
-// NewCreateVMRequestWithBody generates requests for CreateVM with any type of body
-func NewCreateVMRequestWithBody(server string, providerId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+// NewGetProviderRequest generates requests for GetProvider
+func NewGetProviderRequest(server string, providerId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "provider-id", runtime.ParamLocationPath, providerId)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "providerId", runtime.ParamLocationPath, providerId)
 	if err != nil {
 		return nil, err
 	}
@@ -360,36 +287,7 @@ func NewCreateVMRequestWithBody(server string, providerId openapi_types.UUID, co
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/provider/%s/application", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewListVMProvidersRequest generates requests for ListVMProviders
-func NewListVMProvidersRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/providers")
+	operationPath := fmt.Sprintf("/provider/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -407,13 +305,24 @@ func NewListVMProvidersRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewGetVMProviderRequest generates requests for GetVMProvider
-func NewGetVMProviderRequest(server string, providerId openapi_types.UUID) (*http.Request, error) {
+// NewCreateProviderRequest calls the generic CreateProvider builder with application/json body
+func NewCreateProviderRequest(server string, providerId openapi_types.UUID, body CreateProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateProviderRequestWithBody(server, providerId, "application/json", bodyReader)
+}
+
+// NewCreateProviderRequestWithBody generates requests for CreateProvider with any type of body
+func NewCreateProviderRequestWithBody(server string, providerId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "provider-id", runtime.ParamLocationPath, providerId)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "providerId", runtime.ParamLocationPath, providerId)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +332,7 @@ func NewGetVMProviderRequest(server string, providerId openapi_types.UUID) (*htt
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/providers/%s", pathParam0)
+	operationPath := fmt.Sprintf("/provider/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -431,6 +340,104 @@ func NewGetVMProviderRequest(server string, providerId openapi_types.UUID) (*htt
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewApplyProviderRequest calls the generic ApplyProvider builder with application/json body
+func NewApplyProviderRequest(server string, providerId openapi_types.UUID, body ApplyProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewApplyProviderRequestWithBody(server, providerId, "application/json", bodyReader)
+}
+
+// NewApplyProviderRequestWithBody generates requests for ApplyProvider with any type of body
+func NewApplyProviderRequestWithBody(server string, providerId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "providerId", runtime.ParamLocationPath, providerId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/provider/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListProvidersRequest generates requests for ListProviders
+func NewListProvidersRequest(server string, params *ListProvidersParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/providers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Type != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "type", runtime.ParamLocationQuery, *params.Type); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -487,24 +494,24 @@ type ClientWithResponsesInterface interface {
 	// ListHealthWithResponse request
 	ListHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListHealthResponse, error)
 
-	// CreateVMProviderWithBodyWithResponse request with any body
-	CreateVMProviderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVMProviderResponse, error)
+	// DeleteProviderWithResponse request
+	DeleteProviderWithResponse(ctx context.Context, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error)
 
-	CreateVMProviderWithResponse(ctx context.Context, body CreateVMProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVMProviderResponse, error)
+	// GetProviderWithResponse request
+	GetProviderWithResponse(ctx context.Context, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProviderResponse, error)
 
-	// DeleteVMWithResponse request
-	DeleteVMWithResponse(ctx context.Context, providerId openapi_types.UUID, params *DeleteVMParams, reqEditors ...RequestEditorFn) (*DeleteVMResponse, error)
+	// CreateProviderWithBodyWithResponse request with any body
+	CreateProviderWithBodyWithResponse(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error)
 
-	// CreateVMWithBodyWithResponse request with any body
-	CreateVMWithBodyWithResponse(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVMResponse, error)
+	CreateProviderWithResponse(ctx context.Context, providerId openapi_types.UUID, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error)
 
-	CreateVMWithResponse(ctx context.Context, providerId openapi_types.UUID, body CreateVMJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVMResponse, error)
+	// ApplyProviderWithBodyWithResponse request with any body
+	ApplyProviderWithBodyWithResponse(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error)
 
-	// ListVMProvidersWithResponse request
-	ListVMProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListVMProvidersResponse, error)
+	ApplyProviderWithResponse(ctx context.Context, providerId openapi_types.UUID, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error)
 
-	// GetVMProviderWithResponse request
-	GetVMProviderWithResponse(ctx context.Context, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetVMProviderResponse, error)
+	// ListProvidersWithResponse request
+	ListProvidersWithResponse(ctx context.Context, params *ListProvidersParams, reqEditors ...RequestEditorFn) (*ListProvidersResponse, error)
 }
 
 type ListHealthResponse struct {
@@ -528,16 +535,16 @@ func (r ListHealthResponse) StatusCode() int {
 	return 0
 }
 
-type CreateVMProviderResponse struct {
+type DeleteProviderResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *VMProvider
+	JSON204      *Provider
 	JSON400      *Error
 	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r CreateVMProviderResponse) Status() string {
+func (r DeleteProviderResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -545,23 +552,23 @@ func (r CreateVMProviderResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r CreateVMProviderResponse) StatusCode() int {
+func (r DeleteProviderResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type DeleteVMResponse struct {
+type GetProviderResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON204      *VM
+	JSON200      *Provider
 	JSON400      *Error
 	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r DeleteVMResponse) Status() string {
+func (r GetProviderResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -569,23 +576,23 @@ func (r DeleteVMResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DeleteVMResponse) StatusCode() int {
+func (r GetProviderResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type CreateVMResponse struct {
+type CreateProviderResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *VM
+	JSON201      *Provider
 	JSON400      *Error
 	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r CreateVMResponse) Status() string {
+func (r CreateProviderResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -593,23 +600,23 @@ func (r CreateVMResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r CreateVMResponse) StatusCode() int {
+func (r CreateProviderResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListVMProvidersResponse struct {
+type ApplyProviderResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *VMProviderList
+	JSON201      *Provider
 	JSON400      *Error
 	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r ListVMProvidersResponse) Status() string {
+func (r ApplyProviderResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -617,23 +624,23 @@ func (r ListVMProvidersResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListVMProvidersResponse) StatusCode() int {
+func (r ApplyProviderResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetVMProviderResponse struct {
+type ListProvidersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *VMProvider
+	JSON200      *ProviderList
 	JSON400      *Error
 	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r GetVMProviderResponse) Status() string {
+func (r ListProvidersResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -641,7 +648,7 @@ func (r GetVMProviderResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetVMProviderResponse) StatusCode() int {
+func (r ListProvidersResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -657,65 +664,65 @@ func (c *ClientWithResponses) ListHealthWithResponse(ctx context.Context, reqEdi
 	return ParseListHealthResponse(rsp)
 }
 
-// CreateVMProviderWithBodyWithResponse request with arbitrary body returning *CreateVMProviderResponse
-func (c *ClientWithResponses) CreateVMProviderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVMProviderResponse, error) {
-	rsp, err := c.CreateVMProviderWithBody(ctx, contentType, body, reqEditors...)
+// DeleteProviderWithResponse request returning *DeleteProviderResponse
+func (c *ClientWithResponses) DeleteProviderWithResponse(ctx context.Context, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error) {
+	rsp, err := c.DeleteProvider(ctx, providerId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateVMProviderResponse(rsp)
+	return ParseDeleteProviderResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateVMProviderWithResponse(ctx context.Context, body CreateVMProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVMProviderResponse, error) {
-	rsp, err := c.CreateVMProvider(ctx, body, reqEditors...)
+// GetProviderWithResponse request returning *GetProviderResponse
+func (c *ClientWithResponses) GetProviderWithResponse(ctx context.Context, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProviderResponse, error) {
+	rsp, err := c.GetProvider(ctx, providerId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateVMProviderResponse(rsp)
+	return ParseGetProviderResponse(rsp)
 }
 
-// DeleteVMWithResponse request returning *DeleteVMResponse
-func (c *ClientWithResponses) DeleteVMWithResponse(ctx context.Context, providerId openapi_types.UUID, params *DeleteVMParams, reqEditors ...RequestEditorFn) (*DeleteVMResponse, error) {
-	rsp, err := c.DeleteVM(ctx, providerId, params, reqEditors...)
+// CreateProviderWithBodyWithResponse request with arbitrary body returning *CreateProviderResponse
+func (c *ClientWithResponses) CreateProviderWithBodyWithResponse(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error) {
+	rsp, err := c.CreateProviderWithBody(ctx, providerId, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDeleteVMResponse(rsp)
+	return ParseCreateProviderResponse(rsp)
 }
 
-// CreateVMWithBodyWithResponse request with arbitrary body returning *CreateVMResponse
-func (c *ClientWithResponses) CreateVMWithBodyWithResponse(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVMResponse, error) {
-	rsp, err := c.CreateVMWithBody(ctx, providerId, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateProviderWithResponse(ctx context.Context, providerId openapi_types.UUID, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error) {
+	rsp, err := c.CreateProvider(ctx, providerId, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateVMResponse(rsp)
+	return ParseCreateProviderResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateVMWithResponse(ctx context.Context, providerId openapi_types.UUID, body CreateVMJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVMResponse, error) {
-	rsp, err := c.CreateVM(ctx, providerId, body, reqEditors...)
+// ApplyProviderWithBodyWithResponse request with arbitrary body returning *ApplyProviderResponse
+func (c *ClientWithResponses) ApplyProviderWithBodyWithResponse(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error) {
+	rsp, err := c.ApplyProviderWithBody(ctx, providerId, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateVMResponse(rsp)
+	return ParseApplyProviderResponse(rsp)
 }
 
-// ListVMProvidersWithResponse request returning *ListVMProvidersResponse
-func (c *ClientWithResponses) ListVMProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListVMProvidersResponse, error) {
-	rsp, err := c.ListVMProviders(ctx, reqEditors...)
+func (c *ClientWithResponses) ApplyProviderWithResponse(ctx context.Context, providerId openapi_types.UUID, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error) {
+	rsp, err := c.ApplyProvider(ctx, providerId, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListVMProvidersResponse(rsp)
+	return ParseApplyProviderResponse(rsp)
 }
 
-// GetVMProviderWithResponse request returning *GetVMProviderResponse
-func (c *ClientWithResponses) GetVMProviderWithResponse(ctx context.Context, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetVMProviderResponse, error) {
-	rsp, err := c.GetVMProvider(ctx, providerId, reqEditors...)
+// ListProvidersWithResponse request returning *ListProvidersResponse
+func (c *ClientWithResponses) ListProvidersWithResponse(ctx context.Context, params *ListProvidersParams, reqEditors ...RequestEditorFn) (*ListProvidersResponse, error) {
+	rsp, err := c.ListProviders(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetVMProviderResponse(rsp)
+	return ParseListProvidersResponse(rsp)
 }
 
 // ParseListHealthResponse parses an HTTP response from a ListHealthWithResponse call
@@ -734,62 +741,22 @@ func ParseListHealthResponse(rsp *http.Response) (*ListHealthResponse, error) {
 	return response, nil
 }
 
-// ParseCreateVMProviderResponse parses an HTTP response from a CreateVMProviderWithResponse call
-func ParseCreateVMProviderResponse(rsp *http.Response) (*CreateVMProviderResponse, error) {
+// ParseDeleteProviderResponse parses an HTTP response from a DeleteProviderWithResponse call
+func ParseDeleteProviderResponse(rsp *http.Response) (*DeleteProviderResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &CreateVMProviderResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest VMProvider
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDeleteVMResponse parses an HTTP response from a DeleteVMWithResponse call
-func ParseDeleteVMResponse(rsp *http.Response) (*DeleteVMResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteVMResponse{
+	response := &DeleteProviderResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 204:
-		var dest VM
+		var dest Provider
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -814,62 +781,22 @@ func ParseDeleteVMResponse(rsp *http.Response) (*DeleteVMResponse, error) {
 	return response, nil
 }
 
-// ParseCreateVMResponse parses an HTTP response from a CreateVMWithResponse call
-func ParseCreateVMResponse(rsp *http.Response) (*CreateVMResponse, error) {
+// ParseGetProviderResponse parses an HTTP response from a GetProviderWithResponse call
+func ParseGetProviderResponse(rsp *http.Response) (*GetProviderResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &CreateVMResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest VM
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListVMProvidersResponse parses an HTTP response from a ListVMProvidersWithResponse call
-func ParseListVMProvidersResponse(rsp *http.Response) (*ListVMProvidersResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListVMProvidersResponse{
+	response := &GetProviderResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest VMProviderList
+		var dest Provider
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -894,22 +821,102 @@ func ParseListVMProvidersResponse(rsp *http.Response) (*ListVMProvidersResponse,
 	return response, nil
 }
 
-// ParseGetVMProviderResponse parses an HTTP response from a GetVMProviderWithResponse call
-func ParseGetVMProviderResponse(rsp *http.Response) (*GetVMProviderResponse, error) {
+// ParseCreateProviderResponse parses an HTTP response from a CreateProviderWithResponse call
+func ParseCreateProviderResponse(rsp *http.Response) (*CreateProviderResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetVMProviderResponse{
+	response := &CreateProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Provider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseApplyProviderResponse parses an HTTP response from a ApplyProviderWithResponse call
+func ParseApplyProviderResponse(rsp *http.Response) (*ApplyProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApplyProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Provider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListProvidersResponse parses an HTTP response from a ListProvidersWithResponse call
+func ParseListProvidersResponse(rsp *http.Response) (*ListProvidersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProvidersResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest VMProvider
+		var dest ProviderList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
