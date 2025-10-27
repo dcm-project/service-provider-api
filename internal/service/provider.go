@@ -71,10 +71,19 @@ func (v *ProviderService) GetProvider(ctx context.Context, providerID string) (s
 	return provider, nil
 }
 
-func (v *ProviderService) ListProvider(ctx context.Context) (*[]server.Provider, error) {
+func (v *ProviderService) ListProvider(ctx context.Context, providerType *string) (*[]server.Provider, error) {
 	logger := zap.S().Named("service_provider:listProviders")
 	logger.Info("Retrieving Service Providers")
-	providers, err := v.store.Provider().List(ctx)
+
+	// Filter by type if provided
+	var providers model.ProviderList
+	var err error
+	if providerType != nil {
+		providers, err = v.store.Provider().ListByType(ctx, *providerType)
+	} else {
+		providers, err = v.store.Provider().List(ctx)
+	}
+
 	if err != nil {
 		logger.Error("Failed to list providers", err)
 		return &[]server.Provider{}, err
@@ -94,4 +103,45 @@ func (v *ProviderService) ListProvider(ctx context.Context) (*[]server.Provider,
 	}
 	logger.Info("Successfully retrieved Service Providers")
 	return &providerList, nil
+}
+
+func (v *ProviderService) UpdateProvider(ctx context.Context, updateProvider server.ApplyProviderJSONRequestBody) (server.Provider, error) {
+	logger := zap.S().Named("service_provider:UpdateProvider")
+	logger.Info("Retrieving Service Providers by ID")
+
+	providerUUID := uuid.MustParse(updateProvider.Id)
+	_, err := v.store.Provider().Get(ctx, providerUUID)
+	if err != nil {
+		logger.Error("ProviderID does not exist in database", err)
+		return server.Provider{}, err
+	}
+
+	updatedModel := model.Provider{
+		ID:           providerUUID,
+		Name:         updateProvider.Name,
+		Endpoint:     updateProvider.Endpoint,
+		Description:  updateProvider.Description,
+		ProviderType: string(updateProvider.Type),
+		ApiHost:      updateProvider.ApiHost,
+		Operations:   updateProvider.Operations,
+	}
+	_, err = v.store.Provider().Update(ctx, updatedModel)
+	if err != nil {
+		return server.Provider{}, err
+	}
+	logger.Info("Successfully updated service provider")
+	return updateProvider, nil
+}
+
+func (v *ProviderService) DeleteProvider(ctx context.Context, providerID string) error {
+	logger := zap.S().Named("service_provider:DeleteProvider")
+	logger.Info("Deleting provider by ID")
+
+	providerUUID := uuid.MustParse(providerID)
+	err := v.store.Provider().Delete(ctx, providerUUID)
+	if err != nil {
+		return err
+	}
+	logger.Info("Successfully deleted service provider")
+	return nil
 }

@@ -28,9 +28,14 @@ func (s *ServiceHandler) ListProviders(ctx context.Context, request server.ListP
 	logger := zap.S().Named("handler:listProviders")
 	logger.Info("Retrieving service providers... ")
 
-	//TODO implement filter by type
+	var providerType *string
+	if *request.Params.Type != "" {
+		providerType = request.Params.Type
+	} else {
+		providerType = nil
+	}
 
-	providers, err := s.providerService.ListProvider(ctx)
+	providers, err := s.providerService.ListProvider(ctx, providerType)
 	if err != nil {
 		return nil, err
 	}
@@ -83,17 +88,24 @@ func (s *ServiceHandler) ApplyProvider(ctx context.Context, request server.Apply
 	logger := zap.S().Named("handler:applyProvider")
 	logger.Info("Updating provider details: ", "ID: ", request.ProviderId)
 
-	// TODO
+	_, err := s.providerService.UpdateProvider(ctx, *request.Body)
 
+	if err != nil {
+		return server.ApplyProvider400JSONResponse{Error: err.Error()}, nil
+	}
 	return nil, nil
 }
 
 // DeleteProvider (DELETE /provider/{providerId})
 func (s *ServiceHandler) DeleteProvider(ctx context.Context, request server.DeleteProviderRequestObject) (server.DeleteProviderResponseObject, error) {
 	logger := zap.S().Named("handler:deleteProvider")
-	logger.Info("Deleting provider: ", "ID: ", request.ProviderId)
+	providerID := request.ProviderId.String()
+	logger.Info("Deleting provider: ", "ID: ", providerID)
 
-	// TODO
-
-	return nil, nil
+	err := s.providerService.DeleteProvider(ctx, providerID)
+	if err != nil {
+		return nil, err
+	}
+	logger.Info("Successfully deleted service provider")
+	return server.DeleteProvider204JSONResponse{Id: providerID}, nil
 }
