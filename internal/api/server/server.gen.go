@@ -22,12 +22,30 @@ const (
 	VirtualMachine ProviderType = "virtual_machine"
 )
 
-// Error defines model for Error.
-type Error struct {
+// Error400 defines model for Error400.
+type Error400 struct {
 	// Code Error code
 	Code *int `json:"code,omitempty"`
 
-	// Error Error message
+	// Error Invalid input
+	Error string `json:"error"`
+}
+
+// Error404 defines model for Error404.
+type Error404 struct {
+	// Code Error code
+	Code *int `json:"code,omitempty"`
+
+	// Error Resource not found
+	Error string `json:"error"`
+}
+
+// Error500 defines model for Error500.
+type Error500 struct {
+	// Code Error code
+	Code *int `json:"code,omitempty"`
+
+	// Error Internal service error
 	Error string `json:"error"`
 }
 
@@ -81,21 +99,21 @@ type ServerInterface interface {
 	// Health check
 	// (GET /health)
 	ListHealth(w http.ResponseWriter, r *http.Request)
-	// Delete a service Provider
-	// (DELETE /provider/{providerId})
-	DeleteProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
-	// Get a provider
-	// (GET /provider/{providerId})
-	GetProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
-	// Create a Service Provider
-	// (POST /provider/{providerId})
-	CreateProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
-	// Update a Service Provider
-	// (PUT /provider/{providerId})
-	ApplyProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
 	// List all providers
 	// (GET /providers)
 	ListProviders(w http.ResponseWriter, r *http.Request, params ListProvidersParams)
+	// Create a Service Provider
+	// (POST /providers)
+	CreateProvider(w http.ResponseWriter, r *http.Request)
+	// Delete a service Provider
+	// (DELETE /providers/{providerId})
+	DeleteProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
+	// Get a provider
+	// (GET /providers/{providerId})
+	GetProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
+	// Update a Service Provider
+	// (PUT /providers/{providerId})
+	ApplyProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -108,33 +126,33 @@ func (_ Unimplemented) ListHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// List all providers
+// (GET /providers)
+func (_ Unimplemented) ListProviders(w http.ResponseWriter, r *http.Request, params ListProvidersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a Service Provider
+// (POST /providers)
+func (_ Unimplemented) CreateProvider(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Delete a service Provider
-// (DELETE /provider/{providerId})
+// (DELETE /providers/{providerId})
 func (_ Unimplemented) DeleteProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get a provider
-// (GET /provider/{providerId})
+// (GET /providers/{providerId})
 func (_ Unimplemented) GetProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Create a Service Provider
-// (POST /provider/{providerId})
-func (_ Unimplemented) CreateProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // Update a Service Provider
-// (PUT /provider/{providerId})
+// (PUT /providers/{providerId})
 func (_ Unimplemented) ApplyProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// List all providers
-// (GET /providers)
-func (_ Unimplemented) ListProviders(w http.ResponseWriter, r *http.Request, params ListProvidersParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -153,6 +171,49 @@ func (siw *ServerInterfaceWrapper) ListHealth(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListHealth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// ListProviders operation middleware
+func (siw *ServerInterfaceWrapper) ListProviders(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProvidersParams
+
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "type", r.URL.Query(), &params.Type)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProviders(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// CreateProvider operation middleware
+func (siw *ServerInterfaceWrapper) CreateProvider(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateProvider(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -214,32 +275,6 @@ func (siw *ServerInterfaceWrapper) GetProvider(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// CreateProvider operation middleware
-func (siw *ServerInterfaceWrapper) CreateProvider(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	var err error
-
-	// ------------- Path parameter "providerId" -------------
-	var providerId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "providerId", chi.URLParam(r, "providerId"), &providerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateProvider(w, r, providerId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r.WithContext(ctx))
-}
-
 // ApplyProvider operation middleware
 func (siw *ServerInterfaceWrapper) ApplyProvider(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -257,34 +292,6 @@ func (siw *ServerInterfaceWrapper) ApplyProvider(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ApplyProvider(w, r, providerId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r.WithContext(ctx))
-}
-
-// ListProviders operation middleware
-func (siw *ServerInterfaceWrapper) ListProviders(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ListProvidersParams
-
-	// ------------- Optional query parameter "type" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "type", r.URL.Query(), &params.Type)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListProviders(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -411,19 +418,19 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/health", wrapper.ListHealth)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/provider/{providerId}", wrapper.DeleteProvider)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/provider/{providerId}", wrapper.GetProvider)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/provider/{providerId}", wrapper.CreateProvider)
-	})
-	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/provider/{providerId}", wrapper.ApplyProvider)
-	})
-	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/providers", wrapper.ListProviders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/providers", wrapper.CreateProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/providers/{providerId}", wrapper.DeleteProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/providers/{providerId}", wrapper.GetProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/providers/{providerId}", wrapper.ApplyProvider)
 	})
 
 	return r
@@ -444,6 +451,76 @@ func (response ListHealth200Response) VisitListHealthResponse(w http.ResponseWri
 	return nil
 }
 
+type ListProvidersRequestObject struct {
+	Params ListProvidersParams
+}
+
+type ListProvidersResponseObject interface {
+	VisitListProvidersResponse(w http.ResponseWriter) error
+}
+
+type ListProviders200JSONResponse ProviderList
+
+func (response ListProviders200JSONResponse) VisitListProvidersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListProviders400JSONResponse Error400
+
+func (response ListProviders400JSONResponse) VisitListProvidersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListProviders500JSONResponse Error500
+
+func (response ListProviders500JSONResponse) VisitListProvidersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateProviderRequestObject struct {
+	Body *CreateProviderJSONRequestBody
+}
+
+type CreateProviderResponseObject interface {
+	VisitCreateProviderResponse(w http.ResponseWriter) error
+}
+
+type CreateProvider201JSONResponse Provider
+
+func (response CreateProvider201JSONResponse) VisitCreateProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateProvider400JSONResponse Error400
+
+func (response CreateProvider400JSONResponse) VisitCreateProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateProvider500JSONResponse Error500
+
+func (response CreateProvider500JSONResponse) VisitCreateProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type DeleteProviderRequestObject struct {
 	ProviderId openapi_types.UUID `json:"providerId"`
 }
@@ -461,7 +538,7 @@ func (response DeleteProvider204JSONResponse) VisitDeleteProviderResponse(w http
 	return json.NewEncoder(w).Encode(response)
 }
 
-type DeleteProvider400JSONResponse Error
+type DeleteProvider400JSONResponse Error400
 
 func (response DeleteProvider400JSONResponse) VisitDeleteProviderResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -470,7 +547,16 @@ func (response DeleteProvider400JSONResponse) VisitDeleteProviderResponse(w http
 	return json.NewEncoder(w).Encode(response)
 }
 
-type DeleteProvider500JSONResponse Error
+type DeleteProvider404JSONResponse Error404
+
+func (response DeleteProvider404JSONResponse) VisitDeleteProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteProvider500JSONResponse Error500
 
 func (response DeleteProvider500JSONResponse) VisitDeleteProviderResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -496,7 +582,7 @@ func (response GetProvider200JSONResponse) VisitGetProviderResponse(w http.Respo
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetProvider400JSONResponse Error
+type GetProvider400JSONResponse Error400
 
 func (response GetProvider400JSONResponse) VisitGetProviderResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -505,45 +591,18 @@ func (response GetProvider400JSONResponse) VisitGetProviderResponse(w http.Respo
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetProvider500JSONResponse Error
+type GetProvider404JSONResponse Error404
+
+func (response GetProvider404JSONResponse) VisitGetProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetProvider500JSONResponse Error500
 
 func (response GetProvider500JSONResponse) VisitGetProviderResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateProviderRequestObject struct {
-	ProviderId openapi_types.UUID `json:"providerId"`
-	Body       *CreateProviderJSONRequestBody
-}
-
-type CreateProviderResponseObject interface {
-	VisitCreateProviderResponse(w http.ResponseWriter) error
-}
-
-type CreateProvider201JSONResponse Provider
-
-func (response CreateProvider201JSONResponse) VisitCreateProviderResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateProvider400JSONResponse Error
-
-func (response CreateProvider400JSONResponse) VisitCreateProviderResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateProvider500JSONResponse Error
-
-func (response CreateProvider500JSONResponse) VisitCreateProviderResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -568,7 +627,7 @@ func (response ApplyProvider201JSONResponse) VisitApplyProviderResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ApplyProvider400JSONResponse Error
+type ApplyProvider400JSONResponse Error400
 
 func (response ApplyProvider400JSONResponse) VisitApplyProviderResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -577,44 +636,18 @@ func (response ApplyProvider400JSONResponse) VisitApplyProviderResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ApplyProvider500JSONResponse Error
+type ApplyProvider404JSONResponse Error404
+
+func (response ApplyProvider404JSONResponse) VisitApplyProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyProvider500JSONResponse Error500
 
 func (response ApplyProvider500JSONResponse) VisitApplyProviderResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListProvidersRequestObject struct {
-	Params ListProvidersParams
-}
-
-type ListProvidersResponseObject interface {
-	VisitListProvidersResponse(w http.ResponseWriter) error
-}
-
-type ListProviders200JSONResponse ProviderList
-
-func (response ListProviders200JSONResponse) VisitListProvidersResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListProviders400JSONResponse Error
-
-func (response ListProviders400JSONResponse) VisitListProvidersResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListProviders500JSONResponse Error
-
-func (response ListProviders500JSONResponse) VisitListProvidersResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -626,21 +659,21 @@ type StrictServerInterface interface {
 	// Health check
 	// (GET /health)
 	ListHealth(ctx context.Context, request ListHealthRequestObject) (ListHealthResponseObject, error)
-	// Delete a service Provider
-	// (DELETE /provider/{providerId})
-	DeleteProvider(ctx context.Context, request DeleteProviderRequestObject) (DeleteProviderResponseObject, error)
-	// Get a provider
-	// (GET /provider/{providerId})
-	GetProvider(ctx context.Context, request GetProviderRequestObject) (GetProviderResponseObject, error)
-	// Create a Service Provider
-	// (POST /provider/{providerId})
-	CreateProvider(ctx context.Context, request CreateProviderRequestObject) (CreateProviderResponseObject, error)
-	// Update a Service Provider
-	// (PUT /provider/{providerId})
-	ApplyProvider(ctx context.Context, request ApplyProviderRequestObject) (ApplyProviderResponseObject, error)
 	// List all providers
 	// (GET /providers)
 	ListProviders(ctx context.Context, request ListProvidersRequestObject) (ListProvidersResponseObject, error)
+	// Create a Service Provider
+	// (POST /providers)
+	CreateProvider(ctx context.Context, request CreateProviderRequestObject) (CreateProviderResponseObject, error)
+	// Delete a service Provider
+	// (DELETE /providers/{providerId})
+	DeleteProvider(ctx context.Context, request DeleteProviderRequestObject) (DeleteProviderResponseObject, error)
+	// Get a provider
+	// (GET /providers/{providerId})
+	GetProvider(ctx context.Context, request GetProviderRequestObject) (GetProviderResponseObject, error)
+	// Update a Service Provider
+	// (PUT /providers/{providerId})
+	ApplyProvider(ctx context.Context, request ApplyProviderRequestObject) (ApplyProviderResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -689,6 +722,63 @@ func (sh *strictHandler) ListHealth(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListHealthResponseObject); ok {
 		if err := validResponse.VisitListHealthResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListProviders operation middleware
+func (sh *strictHandler) ListProviders(w http.ResponseWriter, r *http.Request, params ListProvidersParams) {
+	var request ListProvidersRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProviders(ctx, request.(ListProvidersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProviders")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListProvidersResponseObject); ok {
+		if err := validResponse.VisitListProvidersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateProvider operation middleware
+func (sh *strictHandler) CreateProvider(w http.ResponseWriter, r *http.Request) {
+	var request CreateProviderRequestObject
+
+	var body CreateProviderJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateProvider(ctx, request.(CreateProviderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateProvider")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateProviderResponseObject); ok {
+		if err := validResponse.VisitCreateProviderResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -748,39 +838,6 @@ func (sh *strictHandler) GetProvider(w http.ResponseWriter, r *http.Request, pro
 	}
 }
 
-// CreateProvider operation middleware
-func (sh *strictHandler) CreateProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
-	var request CreateProviderRequestObject
-
-	request.ProviderId = providerId
-
-	var body CreateProviderJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateProvider(ctx, request.(CreateProviderRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateProvider")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(CreateProviderResponseObject); ok {
-		if err := validResponse.VisitCreateProviderResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // ApplyProvider operation middleware
 func (sh *strictHandler) ApplyProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
 	var request ApplyProviderRequestObject
@@ -807,32 +864,6 @@ func (sh *strictHandler) ApplyProvider(w http.ResponseWriter, r *http.Request, p
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ApplyProviderResponseObject); ok {
 		if err := validResponse.VisitApplyProviderResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// ListProviders operation middleware
-func (sh *strictHandler) ListProviders(w http.ResponseWriter, r *http.Request, params ListProvidersParams) {
-	var request ListProvidersRequestObject
-
-	request.Params = params
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListProviders(ctx, request.(ListProvidersRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListProviders")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListProvidersResponseObject); ok {
-		if err := validResponse.VisitListProvidersResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

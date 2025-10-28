@@ -10,12 +10,30 @@ const (
 	VirtualMachine ProviderType = "virtual_machine"
 )
 
-// Error defines model for Error.
-type Error struct {
+// Error400 defines model for Error400.
+type Error400 struct {
 	// Code Error code
 	Code *int `json:"code,omitempty"`
 
-	// Error Error message
+	// Error Invalid input
+	Error string `json:"error"`
+}
+
+// Error404 defines model for Error404.
+type Error404 struct {
+	// Code Error code
+	Code *int `json:"code,omitempty"`
+
+	// Error Resource not found
+	Error string `json:"error"`
+}
+
+// Error500 defines model for Error500.
+type Error500 struct {
+	// Code Error code
+	Code *int `json:"code,omitempty"`
+
+	// Error Internal service error
 	Error string `json:"error"`
 }
 

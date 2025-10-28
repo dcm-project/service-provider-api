@@ -44,15 +44,44 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Error400'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Error500'
+    post:
+      summary: Create a Service Provider
+      operationId: CreateProvider
+      description: Create a new service provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Provider'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Provider'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error400'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
 
-  /provider/{providerId}:
+  /providers/{providerId}:
     get:
       summary: Get a provider
       operationId: GetProvider
@@ -76,49 +105,20 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-    post:
-      summary: Create a Service Provider
-      operationId: CreateProvider
-      description: Create a new service provider
-      parameters:
-        - name: providerId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Provider'
-      responses:
-        '201':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Provider'
-        '400':
+                $ref: '#/components/schemas/Error400'
+        '404':
           description: Bad request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Error404'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Error500'
+
     put:
       summary: Update a Service Provider
       operationId: ApplyProvider
@@ -148,13 +148,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Error400'
+        '404':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Error500'
     delete:
       summary: Delete a service Provider
       operationId: DeleteProvider
@@ -178,13 +184,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Error400'
+        '404':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Error500'
 
 components:
   schemas:
@@ -247,15 +259,39 @@ components:
           description: Token for retrieving the next page of results
           example: "eyJpZCI6IjEyM2U0NTY3LWU4OWItMTJkMy1hNDU2LTQyNjYxNDE3NDAwMCJ9"
 
-    Error:
+    Error400:
       required:
         - error
       type: object
       properties:
         error:
           type: string
-          description: Error message
+          description: Invalid input
         code:
           type: integer
           description: Error code
           example: 400
+    Error404:
+      required:
+        - error
+      type: object
+      properties:
+        error:
+          type: string
+          description: Resource not found
+        code:
+          type: integer
+          description: Error code
+          example: 404
+    Error500:
+      required:
+        - error
+      type: object
+      properties:
+        error:
+          type: string
+          description: Internal service error
+        code:
+          type: integer
+          description: Error code
+          example: 500

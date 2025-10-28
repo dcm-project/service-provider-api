@@ -44,7 +44,7 @@ func (s *ServiceHandler) ListProviders(ctx context.Context, request server.ListP
 	}, nil
 }
 
-// CreateProvider (POST /provider/{providerId})
+// CreateProvider (POST /providers)
 func (s *ServiceHandler) CreateProvider(ctx context.Context, request server.CreateProviderRequestObject) (server.CreateProviderResponseObject, error) {
 	logger := zap.S().Named("handler:createProvider")
 	logger.Info("Creating new service provider")
@@ -66,13 +66,13 @@ func (s *ServiceHandler) CreateProvider(ctx context.Context, request server.Crea
 	}, nil
 }
 
-// GetProvider (GET /provider/{providerId})
+// GetProvider (GET /providers/{providerId})
 func (s *ServiceHandler) GetProvider(ctx context.Context, request server.GetProviderRequestObject) (server.GetProviderResponseObject, error) {
 	logger := zap.S().Named("handler:getProvider")
 	logger.Info("Retrieving provider details: ", "ID: ", request.ProviderId)
 	providerInfo, err := s.providerService.GetProvider(ctx, request.ProviderId.String())
 	if err != nil {
-		return server.GetProvider400JSONResponse{Error: err.Error()}, nil
+		return server.GetProvider404JSONResponse{Error: err.Error()}, nil
 	}
 	return server.GetProvider200JSONResponse{
 		Description: providerInfo.Description,
@@ -80,10 +80,12 @@ func (s *ServiceHandler) GetProvider(ctx context.Context, request server.GetProv
 		Id:          providerInfo.Id,
 		Name:        providerInfo.Name,
 		Type:        providerInfo.Type,
+		ApiHost:     providerInfo.ApiHost,
+		Operations:  providerInfo.Operations,
 	}, nil
 }
 
-// ApplyProvider (PUT /provider/{providerId}
+// ApplyProvider (PUT /providers/{providerId}
 func (s *ServiceHandler) ApplyProvider(ctx context.Context, request server.ApplyProviderRequestObject) (server.ApplyProviderResponseObject, error) {
 	logger := zap.S().Named("handler:applyProvider")
 	logger.Info("Updating provider details: ", "ID: ", request.ProviderId)
@@ -91,12 +93,12 @@ func (s *ServiceHandler) ApplyProvider(ctx context.Context, request server.Apply
 	_, err := s.providerService.UpdateProvider(ctx, *request.Body)
 
 	if err != nil {
-		return server.ApplyProvider400JSONResponse{Error: err.Error()}, nil
+		return server.ApplyProvider404JSONResponse{Error: err.Error()}, nil
 	}
 	return nil, nil
 }
 
-// DeleteProvider (DELETE /provider/{providerId})
+// DeleteProvider (DELETE /providers/{providerId})
 func (s *ServiceHandler) DeleteProvider(ctx context.Context, request server.DeleteProviderRequestObject) (server.DeleteProviderResponseObject, error) {
 	logger := zap.S().Named("handler:deleteProvider")
 	providerID := request.ProviderId.String()
@@ -104,7 +106,7 @@ func (s *ServiceHandler) DeleteProvider(ctx context.Context, request server.Dele
 
 	err := s.providerService.DeleteProvider(ctx, providerID)
 	if err != nil {
-		return nil, err
+		return server.DeleteProvider404JSONResponse{}, err
 	}
 	logger.Info("Successfully deleted service provider")
 	return server.DeleteProvider204JSONResponse{Id: providerID}, nil
