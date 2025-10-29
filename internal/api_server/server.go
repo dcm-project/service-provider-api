@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -15,19 +14,17 @@ import (
 	api "github.com/dcm-project/service-provider-api/api/v1alpha1"
 	"github.com/dcm-project/service-provider-api/internal/api/server"
 	"github.com/dcm-project/service-provider-api/internal/config"
-	"github.com/dcm-project/service-provider-api/internal/deploy"
 	handlers "github.com/dcm-project/service-provider-api/internal/handlers/v1alpha1"
 	"github.com/dcm-project/service-provider-api/internal/service"
 	"github.com/dcm-project/service-provider-api/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-resty/resty/v2"
 	oapimiddleware "github.com/oapi-codegen/nethttp-middleware"
-	"github.com/spf13/pflag"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"kubevirt.io/client-go/kubecli"
 )
 
 const (
@@ -92,18 +89,12 @@ func (s *Server) Run(ctx context.Context) error {
 			return
 		}
 	})
-
-	// Init openshift connection:
-	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(kubecli.DefaultClientConfig(&pflag.FlagSet{}))
-	if err != nil {
-		log.Fatalf("cannot obtain KubeVirt client: %v\n", err)
-	}
+	restyClient := resty.New()
 
 	h := handlers.NewServiceHandler(
-		s.store,
 		service.NewProviderService(
 			s.store,
-			deploy.NewDeployService(virtClient),
+			restyClient,
 		),
 	)
 

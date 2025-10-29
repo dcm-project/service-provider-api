@@ -5,58 +5,109 @@ import (
 
 	"github.com/dcm-project/service-provider-api/internal/api/server"
 	"github.com/dcm-project/service-provider-api/internal/service"
-	"github.com/dcm-project/service-provider-api/internal/store"
 	"go.uber.org/zap"
 )
 
 type ServiceHandler struct {
-	ps    *service.ProviderService
-	store store.Store
+	providerService *service.ProviderService
 }
 
-func NewServiceHandler(store store.Store, providerService *service.ProviderService) *ServiceHandler {
+func NewServiceHandler(providerService *service.ProviderService) *ServiceHandler {
 	return &ServiceHandler{
-		store: store,
-		ps:    providerService,
+		providerService: providerService,
 	}
 }
 
-// (GET /health)
+// ListHealth (GET /health)
 func (s *ServiceHandler) ListHealth(ctx context.Context, request server.ListHealthRequestObject) (server.ListHealthResponseObject, error) {
 	return server.ListHealth200Response{}, nil
 }
 
 // ListProviders (GET /providers)
 func (s *ServiceHandler) ListProviders(ctx context.Context, request server.ListProvidersRequestObject) (server.ListProvidersResponseObject, error) {
-	logger := zap.S().Named("service-provider")
-	logger.Info("Listing service providers... ")
-	// TODO
-	return nil, nil
+	logger := zap.S().Named("handler:listProviders")
+	logger.Info("Retrieving service providers... ")
+
+	var providerType *string
+	if *request.Params.Type != "" {
+		providerType = request.Params.Type
+	} else {
+		providerType = nil
+	}
+
+	providers, err := s.providerService.ListProvider(ctx, providerType)
+	if err != nil {
+		return nil, err
+	}
+	return server.ListProviders200JSONResponse{
+		Providers: providers,
+	}, nil
 }
 
-// GetProvider (GET /provider/{id})
+// CreateProvider (POST /providers)
+func (s *ServiceHandler) CreateProvider(ctx context.Context, request server.CreateProviderRequestObject) (server.CreateProviderResponseObject, error) {
+	logger := zap.S().Named("handler:createProvider")
+	logger.Info("Creating new service provider")
+
+	newProvider := request.Body
+	err := s.providerService.CreateProvider(ctx, newProvider)
+	if err != nil {
+		return server.CreateProvider400JSONResponse{Error: err.Error()}, nil
+	}
+
+	return server.CreateProvider201JSONResponse{
+		Description: newProvider.Description,
+		Endpoint:    newProvider.Endpoint,
+		Id:          newProvider.Id,
+		Name:        newProvider.Name,
+		Type:        newProvider.Type,
+		Operations:  newProvider.Operations,
+		ApiHost:     newProvider.ApiHost,
+	}, nil
+}
+
+// GetProvider (GET /providers/{providerId})
 func (s *ServiceHandler) GetProvider(ctx context.Context, request server.GetProviderRequestObject) (server.GetProviderResponseObject, error) {
-	logger := zap.S().Named("service-provider")
-	logger.Info("Retrieving provider: ", "ID: ", request.Id)
-	// TODO
+	logger := zap.S().Named("handler:getProvider")
+	logger.Info("Retrieving provider details: ", "ID: ", request.ProviderId)
+	providerInfo, err := s.providerService.GetProvider(ctx, request.ProviderId.String())
+	if err != nil {
+		return server.GetProvider404JSONResponse{Error: err.Error()}, nil
+	}
+	return server.GetProvider200JSONResponse{
+		Description: providerInfo.Description,
+		Endpoint:    providerInfo.Endpoint,
+		Id:          providerInfo.Id,
+		Name:        providerInfo.Name,
+		Type:        providerInfo.Type,
+		ApiHost:     providerInfo.ApiHost,
+		Operations:  providerInfo.Operations,
+	}, nil
+}
+
+// ApplyProvider (PUT /providers/{providerId}
+func (s *ServiceHandler) ApplyProvider(ctx context.Context, request server.ApplyProviderRequestObject) (server.ApplyProviderResponseObject, error) {
+	logger := zap.S().Named("handler:applyProvider")
+	logger.Info("Updating provider details: ", "ID: ", request.ProviderId)
+
+	_, err := s.providerService.UpdateProvider(ctx, *request.Body)
+
+	if err != nil {
+		return server.ApplyProvider404JSONResponse{Error: err.Error()}, nil
+	}
 	return nil, nil
 }
 
-// CreateApplication (POST /provider/application/{id})
-func (s *ServiceHandler) CreateApplication(ctx context.Context, request server.CreateApplicationRequestObject) (server.CreateApplicationResponseObject, error) {
-	logger := zap.S().Named("service-provider")
-	logger.Info("Creating Application. ", "Application: ", request)
+// DeleteProvider (DELETE /providers/{providerId})
+func (s *ServiceHandler) DeleteProvider(ctx context.Context, request server.DeleteProviderRequestObject) (server.DeleteProviderResponseObject, error) {
+	logger := zap.S().Named("handler:deleteProvider")
+	providerID := request.ProviderId.String()
+	logger.Info("Deleting provider: ", "ID: ", providerID)
 
-	// TODO
-	logger.Info("Application created. ", "Application: ", "app")
-	return nil, nil
-}
-
-// (DELETE /provider/{id})
-func (s *ServiceHandler) DeleteApplication(ctx context.Context, request server.DeleteApplicationRequestObject) (server.DeleteApplicationResponseObject, error) {
-	logger := zap.S().Named("service-provider")
-	logger.Info("Deleting Application. ", "Application: ", request)
-	// TODO
-	logger.Info("Application deleted. ", "Application: ", request.Id)
-	return nil, nil
+	err := s.providerService.DeleteProvider(ctx, providerID)
+	if err != nil {
+		return server.DeleteProvider404JSONResponse{}, err
+	}
+	logger.Info("Successfully deleted service provider")
+	return server.DeleteProvider204JSONResponse{Id: providerID}, nil
 }

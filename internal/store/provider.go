@@ -11,8 +11,10 @@ import (
 
 type Provider interface {
 	List(ctx context.Context) (model.ProviderList, error)
+	ListByType(ctx context.Context, providerType string) (model.ProviderList, error)
 	Create(ctx context.Context, app model.Provider) (*model.Provider, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+	Update(ctx context.Context, app model.Provider) (*model.Provider, error)
 	Get(ctx context.Context, id uuid.UUID) (*model.Provider, error)
 }
 
@@ -27,13 +29,13 @@ func NewProvider(db *gorm.DB) Provider {
 }
 
 func (s *ProviderStore) List(ctx context.Context) (model.ProviderList, error) {
-	var apps model.ProviderList
-	tx := s.db.Model(&apps)
-	result := tx.Find(&apps)
+	var provider model.ProviderList
+	tx := s.db.Model(&provider)
+	result := tx.Find(&provider)
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return apps, nil
+	return provider, nil
 }
 
 func (s *ProviderStore) Delete(ctx context.Context, id uuid.UUID) error {
@@ -54,10 +56,27 @@ func (s *ProviderStore) Create(ctx context.Context, app model.Provider) (*model.
 }
 
 func (s *ProviderStore) Get(ctx context.Context, id uuid.UUID) (*model.Provider, error) {
-	var app model.Provider
-	result := s.db.First(&app, id)
+	var provider model.Provider
+	result := s.db.First(&provider, id)
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return &app, nil
+	return &provider, nil
+}
+
+func (s *ProviderStore) Update(ctx context.Context, provider model.Provider) (*model.Provider, error) {
+	result := s.db.Clauses(clause.Returning{}).Save(&provider)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &provider, nil
+}
+
+func (s *ProviderStore) ListByType(ctx context.Context, providerType string) (model.ProviderList, error) {
+	var provider model.ProviderList
+	result := s.db.Where("provider_type = ?", providerType).Find(&provider)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return provider, nil
 }

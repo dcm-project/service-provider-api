@@ -23,9 +23,15 @@ paths:
 
   /providers:
     get:
-      summary: Get all providers
+      summary: List all providers
       operationId: ListProviders
-      description: List all DCM Service Providers
+      description: List all DCM Service Providers with filter by type
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           description: OK
@@ -38,89 +44,50 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Error400'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-
-  /provider/application/{id}:
+                $ref: '#/components/schemas/Error500'
     post:
-      summary: Create a DCM application
-      operationId: createApplication
-      description: Create an application based on service provider
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      summary: Create a Service Provider
+      operationId: CreateProvider
+      description: Create a new service provider
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProviderApplication'
+              $ref: '#/components/schemas/Provider'
       responses:
         '201':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProviderApplication'
+                $ref: '#/components/schemas/Provider'
         '400':
           description: Bad request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Error400'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-    delete:
-      summary: Delete an application
-      operationId: deleteApplication
-      description: Delete a DCM application based on unique ID
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '204':
-          description: No Content
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProviderApplication'
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Error500'
 
-  /provider/{id}:
+  /providers/{providerId}:
     get:
       summary: Get a provider
       operationId: GetProvider
-      description: Get a Service Provider
+      description: Get a service provider based on unique ID
       parameters:
-        - name: id
+        - name: providerId
           in: path
           required: true
           schema:
@@ -138,14 +105,98 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Error400'
+        '404':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Error500'
 
+    put:
+      summary: Update a Service Provider
+      operationId: ApplyProvider
+      description: Update an existing service provider
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Provider'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Provider'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error400'
+        '404':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+    delete:
+      summary: Delete a service Provider
+      operationId: DeleteProvider
+      description: Delete a service provider
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: No content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Provider'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error400'
+        '404':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
 
 components:
   schemas:
@@ -154,11 +205,14 @@ components:
       x-aep-resource: true
       required:
         - name
-        - serviceType
-        - serviceDescription
-        - config
+        - id
+        - type
+        - description
+        - apiHost
+        - endpoint
+        - operations
       properties:
-        uuid:
+        id:
           type: string
           description: Unique identifier for the Service Provider
           example: "123e4567-e89b-12d3-a456-426614174000"
@@ -166,22 +220,37 @@ components:
           type: string
           description: Name of the Service Provider
           example: "kubevirt"
-        serviceType:
+        apiHost:
+          type: string
+          description: Host URL for the provider API
+          example: http://localhost:8080
+        endpoint:
+          type: string
+          description: Endpoint of the Service Provider
+          example: "/v1/vm"
+        type:
           type: string
           description: Type of the Service Provider
-          example: "vm"
-        serviceDescription:
+          example: "virtual_machine"
+          enum:
+            - "virtual_machine"
+            - "database"
+            - "container"
+        description:
           type: string
           description: Summary of Service Provider
-          example: "KubeVirt VM Service Provider"
-        config:
-          type: object
-          description: Configuration for the Service Provider
+          example: "KubeVirt Virtual Machine Service Provider"
+        operations:
+          type: array
+          items:
+            type: string
+          description: Operations performed on the provider endpoint
+          example: ["GET", "PUT", "POST", "DELETE"]
 
     ProviderList:
       type: object
       properties:
-        applications:
+        providers:
           type: array
           items:
             $ref: '#/components/schemas/Provider'
@@ -190,27 +259,39 @@ components:
           description: Token for retrieving the next page of results
           example: "eyJpZCI6IjEyM2U0NTY3LWU4OWItMTJkMy1hNDU2LTQyNjYxNDE3NDAwMCJ9"
 
-    ProviderApplication:
-      type: object
-      x-aep-resource: true
-      properties:
-        uuid:
-          type: string
-          description: ID of the Application
-          example: "123e4567-e89b-12d3-a456-426614174000"
-        config:
-          type: object
-          description: Configuration for the Service Provider Application
-
-    Error:
+    Error400:
       required:
         - error
       type: object
       properties:
         error:
           type: string
-          description: Error message
+          description: Invalid input
         code:
           type: integer
           description: Error code
           example: 400
+    Error404:
+      required:
+        - error
+      type: object
+      properties:
+        error:
+          type: string
+          description: Resource not found
+        code:
+          type: integer
+          description: Error code
+          example: 404
+    Error500:
+      required:
+        - error
+      type: object
+      properties:
+        error:
+          type: string
+          description: Internal service error
+        code:
+          type: integer
+          description: Error code
+          example: 500

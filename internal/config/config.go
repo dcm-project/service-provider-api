@@ -21,8 +21,8 @@ type dbConfig struct {
 }
 
 type svcConfig struct {
-	Address  string `envconfig:"DCM_ADDRESS" default:":8080"`
-	BaseUrl  string `envconfig:"DCM_BASE_URL" default:"https://localhost:8080"`
+	Address  string `envconfig:"DCM_ADDRESS" default:":8081"`
+	BaseUrl  string `envconfig:"DCM_BASE_URL" default:"https://localhost:8081"`
 	LogLevel string `envconfig:"DCM_LOG_LEVEL" default:"info"`
 }
 
