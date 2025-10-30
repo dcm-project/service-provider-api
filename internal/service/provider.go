@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -22,26 +23,26 @@ func NewProviderService(store store.Store, client *resty.Client) *ProviderServic
 	return &ProviderService{store: store, restyClient: *client}
 }
 
-func (v *ProviderService) CreateProvider(ctx context.Context, request *server.CreateProviderJSONRequestBody) error {
+func (v *ProviderService) CreateProvider(ctx context.Context, request *server.RegisterProviderJSONRequestBody) error {
 	logger := zap.S().Named("provider_service:createProvider")
 	logger.Info("Creating service provider")
 
 	newProvider := model.Provider{
+		ID:           request.Uuid,
 		Name:         request.Name,
+		Version:      request.Version,
 		Endpoint:     request.Endpoint,
-		ID:           uuid.MustParse(request.Id),
-		Description:  request.Description,
 		ProviderType: string(request.Type),
-		ApiHost:      request.ApiHost,
-		Operations:   request.Operations,
 	}
-	result, err := v.restyClient.R().Get(newProvider.ApiHost + "/health")
-	if err != nil || result.StatusCode() != http.StatusOK {
-		logger.Error("Failed to get health status or health endpoint return OK status")
-		return fmt.Errorf("health endpoint does not return OK status")
+	result, err := v.restyClient.R().Get(newProvider.Endpoint + "/health")
+	if err != nil {
+		logger.Errorw("Failed to connect to provider health endpoint", "error", err, "endpoint", newProvider.Endpoint)
+		return fmt.Errorf("failed to connect to provider health endpoint %s: %w", newProvider.Endpoint, err)
 	}
-
-	// TODO Get resource information about the provider
+	if result.StatusCode() != http.StatusOK {
+		logger.Errorw("Provider health endpoint returned non-OK status", "status_code", result.StatusCode(), "endpoint", newProvider.Endpoint)
+		return fmt.Errorf("provider health endpoint returned status %d, expected %d", result.StatusCode(), http.StatusOK)
+	}
 
 	provider, err := v.store.Provider().Create(ctx, newProvider)
 	if err != nil {
@@ -49,7 +50,6 @@ func (v *ProviderService) CreateProvider(ctx context.Context, request *server.Cr
 	}
 	logger.Info("Successfully created provider: ", provider.ID)
 	return nil
-
 }
 
 func (v *ProviderService) GetProvider(ctx context.Context, providerID string) (server.Provider, error) {
@@ -61,29 +61,21 @@ func (v *ProviderService) GetProvider(ctx context.Context, providerID string) (s
 		return server.Provider{}, fmt.Errorf("provider %s not found", providerID)
 	}
 	provider := server.Provider{
-		Name:        existingProvider.Name,
-		Endpoint:    existingProvider.Endpoint,
-		Id:          existingProvider.ID.String(),
-		Description: existingProvider.Description,
-		Type:        server.ProviderType(existingProvider.ProviderType),
+		Name:     existingProvider.Name,
+		Uuid:     existingProvider.ID,
+		Type:     existingProvider.ProviderType,
+		Version:  existingProvider.Version,
+		Endpoint: existingProvider.Endpoint,
 	}
 	logger.Info("Successfully retrieved provider details")
 	return provider, nil
 }
 
-func (v *ProviderService) ListProvider(ctx context.Context, providerType *string) (*[]server.Provider, error) {
+func (v *ProviderService) ListProvider(ctx context.Context) (*[]server.Provider, error) {
 	logger := zap.S().Named("service_provider:listProviders")
 	logger.Info("Retrieving Service Providers")
 
-	// Filter by type if provided
-	var providers model.ProviderList
-	var err error
-	if providerType != nil {
-		providers, err = v.store.Provider().ListByType(ctx, *providerType)
-	} else {
-		providers, err = v.store.Provider().List(ctx)
-	}
-
+	providers, err := v.store.Provider().List(ctx)
 	if err != nil {
 		logger.Error("Failed to list providers", err)
 		return &[]server.Provider{}, err
@@ -92,45 +84,15 @@ func (v *ProviderService) ListProvider(ctx context.Context, providerType *string
 	var providerList []server.Provider
 	for _, v := range providers {
 		providerList = append(providerList, server.Provider{
-			Description: v.Description,
-			Id:          v.ID.String(),
-			Name:        v.Name,
-			Type:        server.ProviderType(v.ProviderType),
-			Endpoint:    v.Endpoint,
-			ApiHost:     v.ApiHost,
-			Operations:  v.Operations,
+			Uuid:     v.ID,
+			Name:     v.Name,
+			Type:     v.ProviderType,
+			Version:  v.Version,
+			Endpoint: v.Endpoint,
 		})
 	}
 	logger.Info("Successfully retrieved Service Providers")
 	return &providerList, nil
-}
-
-func (v *ProviderService) UpdateProvider(ctx context.Context, updateProvider server.ApplyProviderJSONRequestBody) (server.Provider, error) {
-	logger := zap.S().Named("service_provider:UpdateProvider")
-	logger.Info("Retrieving Service Providers by ID")
-
-	providerUUID := uuid.MustParse(updateProvider.Id)
-	_, err := v.store.Provider().Get(ctx, providerUUID)
-	if err != nil {
-		logger.Error("ProviderID does not exist in database", err)
-		return server.Provider{}, err
-	}
-
-	updatedModel := model.Provider{
-		ID:           providerUUID,
-		Name:         updateProvider.Name,
-		Endpoint:     updateProvider.Endpoint,
-		Description:  updateProvider.Description,
-		ProviderType: string(updateProvider.Type),
-		ApiHost:      updateProvider.ApiHost,
-		Operations:   updateProvider.Operations,
-	}
-	_, err = v.store.Provider().Update(ctx, updatedModel)
-	if err != nil {
-		return server.Provider{}, err
-	}
-	logger.Info("Successfully updated service provider")
-	return updateProvider, nil
 }
 
 func (v *ProviderService) DeleteProvider(ctx context.Context, providerID string) error {
@@ -144,4 +106,59 @@ func (v *ProviderService) DeleteProvider(ctx context.Context, providerID string)
 	}
 	logger.Info("Successfully deleted service provider")
 	return nil
+}
+
+func (v *ProviderService) ListServiceTypes(ctx context.Context) (*[]server.ServiceType, error) {
+	logger := zap.S().Named("service_provider:listServiceTypes")
+	logger.Info("Retrieving service types")
+
+	providers, err := v.store.Provider().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var serviceTypeList []server.ServiceType
+	for _, provider := range providers {
+		result, err := v.restyClient.R().Get(provider.Endpoint + "/api/v1/services")
+		if err != nil {
+			return nil, err
+		}
+		if result.StatusCode() != http.StatusOK {
+			return nil, fmt.Errorf("failed to list service types: %s", result.Status())
+		}
+		serviceTypes := result.Body()
+
+		// Parse the JSON response body into a slice of map[string]interface{}
+		var providerServiceTypeList []server.ServiceType
+		if err := json.Unmarshal(serviceTypes, &providerServiceTypeList); err != nil {
+			return nil, fmt.Errorf("failed to parse service types json: %v", err)
+		}
+		serviceTypeList = append(serviceTypeList, providerServiceTypeList...)
+	}
+	return &serviceTypeList, nil
+}
+
+func (v *ProviderService) GetServiceTypeSchema(ctx context.Context, providerID string, serviceTypeID string) (*map[string]interface{}, error) {
+	logger := zap.S().Named("service_provider:getServiceTypeSchema")
+	logger.Info("Retrieving service type schema")
+
+	providerUUID := uuid.MustParse(providerID)
+	serviceTypeUUID := uuid.MustParse(serviceTypeID)
+	provider, err := v.store.Provider().Get(ctx, providerUUID)
+	if err != nil {
+		return nil, err
+	}
+	result, err := v.restyClient.R().Get(provider.Endpoint + "/api/v1/services/" + serviceTypeUUID.String() + "/schema")
+	if err != nil {
+		return nil, err
+	}
+	if result.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("failed to get service type schema: %s", result.Status())
+	}
+	bodyBytes := result.Body()
+
+	var schemaMap map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &schemaMap); err != nil {
+		return nil, fmt.Errorf("failed to parse service type schema json: %v", err)
+	}
+	return &schemaMap, nil
 }

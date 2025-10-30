@@ -14,7 +14,7 @@ type Config struct {
 type dbConfig struct {
 	Type     string `envconfig:"DB_TYPE" default:"pgsql"`
 	Hostname string `envconfig:"DB_HOST" default:"localhost"`
-	Port     string `envconfig:"DB_PORT" default:"5432"`
+	Port     string `envconfig:"DB_PORT" default:"5433"`
 	Name     string `envconfig:"DB_NAME" default:"service-provider"`
 	User     string `envconfig:"DB_USER" default:"admin"`
 	Password string `envconfig:"DB_PASS" default:"adminpass"`

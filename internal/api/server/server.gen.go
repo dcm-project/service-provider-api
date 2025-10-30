@@ -8,18 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
 	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
 	openapi_types "github.com/oapi-codegen/runtime/types"
-)
-
-// Defines values for ProviderType.
-const (
-	Container      ProviderType = "container"
-	Database       ProviderType = "database"
-	VirtualMachine ProviderType = "virtual_machine"
 )
 
 // Error400 defines model for Error400.
@@ -51,30 +45,21 @@ type Error500 struct {
 
 // Provider defines model for Provider.
 type Provider struct {
-	// ApiHost Host URL for the provider API
-	ApiHost string `json:"apiHost"`
+	// Capabilities List of service types or special capabilities
+	Capabilities *[]string `json:"capabilities,omitempty"`
 
-	// Description Summary of Service Provider
-	Description string `json:"description"`
+	// Endpoint Optional provider callback/management endpoint (if plugin is remote)
+	Endpoint string                  `json:"endpoint"`
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Name     string                  `json:"name"`
 
-	// Endpoint Endpoint of the Service Provider
-	Endpoint string `json:"endpoint"`
+	// Type Provider category (aws, azure, terraform, ansible, baremetal, custom)
+	Type string `json:"type"`
 
-	// Id Unique identifier for the Service Provider
-	Id string `json:"id"`
-
-	// Name Name of the Service Provider
-	Name string `json:"name"`
-
-	// Operations Operations performed on the provider endpoint
-	Operations []string `json:"operations"`
-
-	// Type Type of the Service Provider
-	Type ProviderType `json:"type"`
+	// Uuid Unique identifier for the provider defined the provider
+	Uuid    openapi_types.UUID `json:"uuid"`
+	Version string             `json:"version"`
 }
-
-// ProviderType Type of the Service Provider
-type ProviderType string
 
 // ProviderList defines model for ProviderList.
 type ProviderList struct {
@@ -83,28 +68,75 @@ type ProviderList struct {
 	Providers     *[]Provider `json:"providers,omitempty"`
 }
 
-// ListProvidersParams defines parameters for ListProviders.
-type ListProvidersParams struct {
-	Type *string `form:"type,omitempty" json:"type,omitempty"`
+// ProviderRegistration defines model for ProviderRegistration.
+type ProviderRegistration struct {
+	// Endpoint Endpoint that implements the provider plugin interface
+	Endpoint string                  `json:"endpoint"`
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Name     string                  `json:"name"`
+	Service  *string                 `json:"service,omitempty"`
+	Type     string                  `json:"type"`
 }
 
-// CreateProviderJSONRequestBody defines body for CreateProvider for application/json ContentType.
-type CreateProviderJSONRequestBody = Provider
+// ServiceInstance defines model for ServiceInstance.
+type ServiceInstance struct {
+	CreatedAt     *time.Time             `json:"createdAt,omitempty"`
+	Id            openapi_types.UUID     `json:"id"`
+	Parameters    map[string]interface{} `json:"parameters"`
+	ServiceTypeId openapi_types.UUID     `json:"serviceTypeId"`
+	UpdatedAt     *time.Time             `json:"updatedAt,omitempty"`
+}
+
+// ServiceInstanceCreate defines model for ServiceInstanceCreate.
+type ServiceInstanceCreate struct {
+	// DryRun If true, provider should validate but not create the resource
+	DryRun *bool `json:"dryRun,omitempty"`
+
+	// Name Optional human-friendly name
+	Name *string `json:"name,omitempty"`
+
+	// Parameters Provider-specific parameters that must validate against provider's JSON Schema
+	Parameters    map[string]interface{} `json:"parameters"`
+	ServiceTypeId openapi_types.UUID     `json:"serviceTypeId"`
+}
+
+// ServiceType defines model for ServiceType.
+type ServiceType struct {
+	Description *string             `json:"description,omitempty"`
+	Id          openapi_types.UUID  `json:"id"`
+	Name        string              `json:"name"`
+	ProviderId  *openapi_types.UUID `json:"providerId,omitempty"`
+}
+
+// ProviderId defines model for providerId.
+type ProviderId = string
+
+// ServiceId defines model for serviceId.
+type ServiceId = string
+
+// ServiceTypeId defines model for serviceTypeId.
+type ServiceTypeId = string
+
+// RegisterProviderJSONRequestBody defines body for RegisterProvider for application/json ContentType.
+type RegisterProviderJSONRequestBody = Provider
 
 // ApplyProviderJSONRequestBody defines body for ApplyProvider for application/json ContentType.
 type ApplyProviderJSONRequestBody = Provider
+
+// CreateServiceInstanceJSONRequestBody defines body for CreateServiceInstance for application/json ContentType.
+type CreateServiceInstanceJSONRequestBody = ServiceInstanceCreate
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Health check
 	// (GET /health)
 	ListHealth(w http.ResponseWriter, r *http.Request)
-	// List all providers
+	// List registered providers
 	// (GET /providers)
-	ListProviders(w http.ResponseWriter, r *http.Request, params ListProvidersParams)
-	// Create a Service Provider
+	ListProviders(w http.ResponseWriter, r *http.Request)
+	// Register a new provider
 	// (POST /providers)
-	CreateProvider(w http.ResponseWriter, r *http.Request)
+	RegisterProvider(w http.ResponseWriter, r *http.Request)
 	// Delete a service Provider
 	// (DELETE /providers/{providerId})
 	DeleteProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
@@ -114,6 +146,27 @@ type ServerInterface interface {
 	// Update a Service Provider
 	// (PUT /providers/{providerId})
 	ApplyProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
+	// List service types
+	// (GET /service-types)
+	ListServiceTypes(w http.ResponseWriter, r *http.Request)
+	// Get service type metadata
+	// (GET /service-types/{serviceTypeId})
+	GetServiceType(w http.ResponseWriter, r *http.Request, serviceTypeId ServiceTypeId)
+	// Get the JSON Schema describing the parameters for this service type
+	// (GET /service-types/{serviceTypeId}/schema)
+	GetServiceTypeSchema(w http.ResponseWriter, r *http.Request, serviceTypeId ServiceTypeId)
+	// List service instances
+	// (GET /services)
+	ListServiceInstances(w http.ResponseWriter, r *http.Request)
+	// Create a new service instance
+	// (POST /services)
+	CreateServiceInstance(w http.ResponseWriter, r *http.Request)
+	// Delete (request removal of) a service instance
+	// (DELETE /services/{serviceId})
+	DeleteServiceInstance(w http.ResponseWriter, r *http.Request, serviceId ServiceId)
+	// Get a service instance
+	// (GET /services/{serviceId})
+	GetServiceInstance(w http.ResponseWriter, r *http.Request, serviceId ServiceId)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -126,15 +179,15 @@ func (_ Unimplemented) ListHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// List all providers
+// List registered providers
 // (GET /providers)
-func (_ Unimplemented) ListProviders(w http.ResponseWriter, r *http.Request, params ListProvidersParams) {
+func (_ Unimplemented) ListProviders(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Create a Service Provider
+// Register a new provider
 // (POST /providers)
-func (_ Unimplemented) CreateProvider(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) RegisterProvider(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -153,6 +206,48 @@ func (_ Unimplemented) GetProvider(w http.ResponseWriter, r *http.Request, provi
 // Update a Service Provider
 // (PUT /providers/{providerId})
 func (_ Unimplemented) ApplyProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List service types
+// (GET /service-types)
+func (_ Unimplemented) ListServiceTypes(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get service type metadata
+// (GET /service-types/{serviceTypeId})
+func (_ Unimplemented) GetServiceType(w http.ResponseWriter, r *http.Request, serviceTypeId ServiceTypeId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get the JSON Schema describing the parameters for this service type
+// (GET /service-types/{serviceTypeId}/schema)
+func (_ Unimplemented) GetServiceTypeSchema(w http.ResponseWriter, r *http.Request, serviceTypeId ServiceTypeId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List service instances
+// (GET /services)
+func (_ Unimplemented) ListServiceInstances(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a new service instance
+// (POST /services)
+func (_ Unimplemented) CreateServiceInstance(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete (request removal of) a service instance
+// (DELETE /services/{serviceId})
+func (_ Unimplemented) DeleteServiceInstance(w http.ResponseWriter, r *http.Request, serviceId ServiceId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get a service instance
+// (GET /services/{serviceId})
+func (_ Unimplemented) GetServiceInstance(w http.ResponseWriter, r *http.Request, serviceId ServiceId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -184,21 +279,8 @@ func (siw *ServerInterfaceWrapper) ListHealth(w http.ResponseWriter, r *http.Req
 func (siw *ServerInterfaceWrapper) ListProviders(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ListProvidersParams
-
-	// ------------- Optional query parameter "type" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "type", r.URL.Query(), &params.Type)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
-		return
-	}
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListProviders(w, r, params)
+		siw.Handler.ListProviders(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -208,12 +290,12 @@ func (siw *ServerInterfaceWrapper) ListProviders(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// CreateProvider operation middleware
-func (siw *ServerInterfaceWrapper) CreateProvider(w http.ResponseWriter, r *http.Request) {
+// RegisterProvider operation middleware
+func (siw *ServerInterfaceWrapper) RegisterProvider(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateProvider(w, r)
+		siw.Handler.RegisterProvider(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -292,6 +374,155 @@ func (siw *ServerInterfaceWrapper) ApplyProvider(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ApplyProvider(w, r, providerId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// ListServiceTypes operation middleware
+func (siw *ServerInterfaceWrapper) ListServiceTypes(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListServiceTypes(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// GetServiceType operation middleware
+func (siw *ServerInterfaceWrapper) GetServiceType(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "serviceTypeId" -------------
+	var serviceTypeId ServiceTypeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "serviceTypeId", chi.URLParam(r, "serviceTypeId"), &serviceTypeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "serviceTypeId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetServiceType(w, r, serviceTypeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// GetServiceTypeSchema operation middleware
+func (siw *ServerInterfaceWrapper) GetServiceTypeSchema(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "serviceTypeId" -------------
+	var serviceTypeId ServiceTypeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "serviceTypeId", chi.URLParam(r, "serviceTypeId"), &serviceTypeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "serviceTypeId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetServiceTypeSchema(w, r, serviceTypeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// ListServiceInstances operation middleware
+func (siw *ServerInterfaceWrapper) ListServiceInstances(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListServiceInstances(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// CreateServiceInstance operation middleware
+func (siw *ServerInterfaceWrapper) CreateServiceInstance(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateServiceInstance(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// DeleteServiceInstance operation middleware
+func (siw *ServerInterfaceWrapper) DeleteServiceInstance(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "serviceId" -------------
+	var serviceId ServiceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "serviceId", chi.URLParam(r, "serviceId"), &serviceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "serviceId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteServiceInstance(w, r, serviceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// GetServiceInstance operation middleware
+func (siw *ServerInterfaceWrapper) GetServiceInstance(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "serviceId" -------------
+	var serviceId ServiceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "serviceId", chi.URLParam(r, "serviceId"), &serviceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "serviceId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetServiceInstance(w, r, serviceId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -421,7 +652,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/providers", wrapper.ListProviders)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/providers", wrapper.CreateProvider)
+		r.Post(options.BaseURL+"/providers", wrapper.RegisterProvider)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/providers/{providerId}", wrapper.DeleteProvider)
@@ -431,6 +662,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/providers/{providerId}", wrapper.ApplyProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/service-types", wrapper.ListServiceTypes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/service-types/{serviceTypeId}", wrapper.GetServiceType)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/service-types/{serviceTypeId}/schema", wrapper.GetServiceTypeSchema)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/services", wrapper.ListServiceInstances)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/services", wrapper.CreateServiceInstance)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/services/{serviceId}", wrapper.DeleteServiceInstance)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/services/{serviceId}", wrapper.GetServiceInstance)
 	})
 
 	return r
@@ -452,7 +704,6 @@ func (response ListHealth200Response) VisitListHealthResponse(w http.ResponseWri
 }
 
 type ListProvidersRequestObject struct {
-	Params ListProvidersParams
 }
 
 type ListProvidersResponseObject interface {
@@ -486,35 +737,35 @@ func (response ListProviders500JSONResponse) VisitListProvidersResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateProviderRequestObject struct {
-	Body *CreateProviderJSONRequestBody
+type RegisterProviderRequestObject struct {
+	Body *RegisterProviderJSONRequestBody
 }
 
-type CreateProviderResponseObject interface {
-	VisitCreateProviderResponse(w http.ResponseWriter) error
+type RegisterProviderResponseObject interface {
+	VisitRegisterProviderResponse(w http.ResponseWriter) error
 }
 
-type CreateProvider201JSONResponse Provider
+type RegisterProvider201JSONResponse Provider
 
-func (response CreateProvider201JSONResponse) VisitCreateProviderResponse(w http.ResponseWriter) error {
+func (response RegisterProvider201JSONResponse) VisitRegisterProviderResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateProvider400JSONResponse Error400
+type RegisterProvider400JSONResponse Error400
 
-func (response CreateProvider400JSONResponse) VisitCreateProviderResponse(w http.ResponseWriter) error {
+func (response RegisterProvider400JSONResponse) VisitRegisterProviderResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateProvider500JSONResponse Error500
+type RegisterProvider500JSONResponse Error500
 
-func (response CreateProvider500JSONResponse) VisitCreateProviderResponse(w http.ResponseWriter) error {
+func (response RegisterProvider500JSONResponse) VisitRegisterProviderResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -654,17 +905,241 @@ func (response ApplyProvider500JSONResponse) VisitApplyProviderResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListServiceTypesRequestObject struct {
+}
+
+type ListServiceTypesResponseObject interface {
+	VisitListServiceTypesResponse(w http.ResponseWriter) error
+}
+
+type ListServiceTypes200JSONResponse []ServiceType
+
+func (response ListServiceTypes200JSONResponse) VisitListServiceTypesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListServiceTypes400JSONResponse Error400
+
+func (response ListServiceTypes400JSONResponse) VisitListServiceTypesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListServiceTypes404JSONResponse Error404
+
+func (response ListServiceTypes404JSONResponse) VisitListServiceTypesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListServiceTypes500JSONResponse Error500
+
+func (response ListServiceTypes500JSONResponse) VisitListServiceTypesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetServiceTypeRequestObject struct {
+	ServiceTypeId ServiceTypeId `json:"serviceTypeId"`
+}
+
+type GetServiceTypeResponseObject interface {
+	VisitGetServiceTypeResponse(w http.ResponseWriter) error
+}
+
+type GetServiceType200JSONResponse ServiceType
+
+func (response GetServiceType200JSONResponse) VisitGetServiceTypeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetServiceType400JSONResponse Error400
+
+func (response GetServiceType400JSONResponse) VisitGetServiceTypeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetServiceType404JSONResponse Error404
+
+func (response GetServiceType404JSONResponse) VisitGetServiceTypeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetServiceType500JSONResponse Error500
+
+func (response GetServiceType500JSONResponse) VisitGetServiceTypeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetServiceTypeSchemaRequestObject struct {
+	ServiceTypeId ServiceTypeId `json:"serviceTypeId"`
+}
+
+type GetServiceTypeSchemaResponseObject interface {
+	VisitGetServiceTypeSchemaResponse(w http.ResponseWriter) error
+}
+
+type GetServiceTypeSchema200JSONResponse map[string]interface{}
+
+func (response GetServiceTypeSchema200JSONResponse) VisitGetServiceTypeSchemaResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetServiceTypeSchema200ApplicationSchemaPlusJSONResponse map[string]interface{}
+
+func (response GetServiceTypeSchema200ApplicationSchemaPlusJSONResponse) VisitGetServiceTypeSchemaResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/schema+json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetServiceTypeSchema400JSONResponse Error400
+
+func (response GetServiceTypeSchema400JSONResponse) VisitGetServiceTypeSchemaResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetServiceTypeSchema404JSONResponse Error404
+
+func (response GetServiceTypeSchema404JSONResponse) VisitGetServiceTypeSchemaResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetServiceTypeSchema500JSONResponse Error500
+
+func (response GetServiceTypeSchema500JSONResponse) VisitGetServiceTypeSchemaResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListServiceInstancesRequestObject struct {
+}
+
+type ListServiceInstancesResponseObject interface {
+	VisitListServiceInstancesResponse(w http.ResponseWriter) error
+}
+
+type ListServiceInstances200JSONResponse []ServiceInstance
+
+func (response ListServiceInstances200JSONResponse) VisitListServiceInstancesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateServiceInstanceRequestObject struct {
+	Body *CreateServiceInstanceJSONRequestBody
+}
+
+type CreateServiceInstanceResponseObject interface {
+	VisitCreateServiceInstanceResponse(w http.ResponseWriter) error
+}
+
+type CreateServiceInstance201JSONResponse ServiceInstance
+
+func (response CreateServiceInstance201JSONResponse) VisitCreateServiceInstanceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteServiceInstanceRequestObject struct {
+	ServiceId ServiceId `json:"serviceId"`
+}
+
+type DeleteServiceInstanceResponseObject interface {
+	VisitDeleteServiceInstanceResponse(w http.ResponseWriter) error
+}
+
+type DeleteServiceInstance202Response struct {
+}
+
+func (response DeleteServiceInstance202Response) VisitDeleteServiceInstanceResponse(w http.ResponseWriter) error {
+	w.WriteHeader(202)
+	return nil
+}
+
+type GetServiceInstanceRequestObject struct {
+	ServiceId ServiceId `json:"serviceId"`
+}
+
+type GetServiceInstanceResponseObject interface {
+	VisitGetServiceInstanceResponse(w http.ResponseWriter) error
+}
+
+type GetServiceInstance200JSONResponse ServiceInstance
+
+func (response GetServiceInstance200JSONResponse) VisitGetServiceInstanceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetServiceInstance404JSONResponse Error404
+
+func (response GetServiceInstance404JSONResponse) VisitGetServiceInstanceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetServiceInstance500JSONResponse Error500
+
+func (response GetServiceInstance500JSONResponse) VisitGetServiceInstanceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Health check
 	// (GET /health)
 	ListHealth(ctx context.Context, request ListHealthRequestObject) (ListHealthResponseObject, error)
-	// List all providers
+	// List registered providers
 	// (GET /providers)
 	ListProviders(ctx context.Context, request ListProvidersRequestObject) (ListProvidersResponseObject, error)
-	// Create a Service Provider
+	// Register a new provider
 	// (POST /providers)
-	CreateProvider(ctx context.Context, request CreateProviderRequestObject) (CreateProviderResponseObject, error)
+	RegisterProvider(ctx context.Context, request RegisterProviderRequestObject) (RegisterProviderResponseObject, error)
 	// Delete a service Provider
 	// (DELETE /providers/{providerId})
 	DeleteProvider(ctx context.Context, request DeleteProviderRequestObject) (DeleteProviderResponseObject, error)
@@ -674,6 +1149,27 @@ type StrictServerInterface interface {
 	// Update a Service Provider
 	// (PUT /providers/{providerId})
 	ApplyProvider(ctx context.Context, request ApplyProviderRequestObject) (ApplyProviderResponseObject, error)
+	// List service types
+	// (GET /service-types)
+	ListServiceTypes(ctx context.Context, request ListServiceTypesRequestObject) (ListServiceTypesResponseObject, error)
+	// Get service type metadata
+	// (GET /service-types/{serviceTypeId})
+	GetServiceType(ctx context.Context, request GetServiceTypeRequestObject) (GetServiceTypeResponseObject, error)
+	// Get the JSON Schema describing the parameters for this service type
+	// (GET /service-types/{serviceTypeId}/schema)
+	GetServiceTypeSchema(ctx context.Context, request GetServiceTypeSchemaRequestObject) (GetServiceTypeSchemaResponseObject, error)
+	// List service instances
+	// (GET /services)
+	ListServiceInstances(ctx context.Context, request ListServiceInstancesRequestObject) (ListServiceInstancesResponseObject, error)
+	// Create a new service instance
+	// (POST /services)
+	CreateServiceInstance(ctx context.Context, request CreateServiceInstanceRequestObject) (CreateServiceInstanceResponseObject, error)
+	// Delete (request removal of) a service instance
+	// (DELETE /services/{serviceId})
+	DeleteServiceInstance(ctx context.Context, request DeleteServiceInstanceRequestObject) (DeleteServiceInstanceResponseObject, error)
+	// Get a service instance
+	// (GET /services/{serviceId})
+	GetServiceInstance(ctx context.Context, request GetServiceInstanceRequestObject) (GetServiceInstanceResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -730,10 +1226,8 @@ func (sh *strictHandler) ListHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListProviders operation middleware
-func (sh *strictHandler) ListProviders(w http.ResponseWriter, r *http.Request, params ListProvidersParams) {
+func (sh *strictHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
 	var request ListProvidersRequestObject
-
-	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListProviders(ctx, request.(ListProvidersRequestObject))
@@ -755,11 +1249,11 @@ func (sh *strictHandler) ListProviders(w http.ResponseWriter, r *http.Request, p
 	}
 }
 
-// CreateProvider operation middleware
-func (sh *strictHandler) CreateProvider(w http.ResponseWriter, r *http.Request) {
-	var request CreateProviderRequestObject
+// RegisterProvider operation middleware
+func (sh *strictHandler) RegisterProvider(w http.ResponseWriter, r *http.Request) {
+	var request RegisterProviderRequestObject
 
-	var body CreateProviderJSONRequestBody
+	var body RegisterProviderJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
 		return
@@ -767,18 +1261,18 @@ func (sh *strictHandler) CreateProvider(w http.ResponseWriter, r *http.Request) 
 	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateProvider(ctx, request.(CreateProviderRequestObject))
+		return sh.ssi.RegisterProvider(ctx, request.(RegisterProviderRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateProvider")
+		handler = middleware(handler, "RegisterProvider")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(CreateProviderResponseObject); ok {
-		if err := validResponse.VisitCreateProviderResponse(w); err != nil {
+	} else if validResponse, ok := response.(RegisterProviderResponseObject); ok {
+		if err := validResponse.VisitRegisterProviderResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -864,6 +1358,189 @@ func (sh *strictHandler) ApplyProvider(w http.ResponseWriter, r *http.Request, p
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ApplyProviderResponseObject); ok {
 		if err := validResponse.VisitApplyProviderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListServiceTypes operation middleware
+func (sh *strictHandler) ListServiceTypes(w http.ResponseWriter, r *http.Request) {
+	var request ListServiceTypesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListServiceTypes(ctx, request.(ListServiceTypesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListServiceTypes")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListServiceTypesResponseObject); ok {
+		if err := validResponse.VisitListServiceTypesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetServiceType operation middleware
+func (sh *strictHandler) GetServiceType(w http.ResponseWriter, r *http.Request, serviceTypeId ServiceTypeId) {
+	var request GetServiceTypeRequestObject
+
+	request.ServiceTypeId = serviceTypeId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetServiceType(ctx, request.(GetServiceTypeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetServiceType")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetServiceTypeResponseObject); ok {
+		if err := validResponse.VisitGetServiceTypeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetServiceTypeSchema operation middleware
+func (sh *strictHandler) GetServiceTypeSchema(w http.ResponseWriter, r *http.Request, serviceTypeId ServiceTypeId) {
+	var request GetServiceTypeSchemaRequestObject
+
+	request.ServiceTypeId = serviceTypeId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetServiceTypeSchema(ctx, request.(GetServiceTypeSchemaRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetServiceTypeSchema")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetServiceTypeSchemaResponseObject); ok {
+		if err := validResponse.VisitGetServiceTypeSchemaResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListServiceInstances operation middleware
+func (sh *strictHandler) ListServiceInstances(w http.ResponseWriter, r *http.Request) {
+	var request ListServiceInstancesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListServiceInstances(ctx, request.(ListServiceInstancesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListServiceInstances")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListServiceInstancesResponseObject); ok {
+		if err := validResponse.VisitListServiceInstancesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateServiceInstance operation middleware
+func (sh *strictHandler) CreateServiceInstance(w http.ResponseWriter, r *http.Request) {
+	var request CreateServiceInstanceRequestObject
+
+	var body CreateServiceInstanceJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateServiceInstance(ctx, request.(CreateServiceInstanceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateServiceInstance")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateServiceInstanceResponseObject); ok {
+		if err := validResponse.VisitCreateServiceInstanceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteServiceInstance operation middleware
+func (sh *strictHandler) DeleteServiceInstance(w http.ResponseWriter, r *http.Request, serviceId ServiceId) {
+	var request DeleteServiceInstanceRequestObject
+
+	request.ServiceId = serviceId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteServiceInstance(ctx, request.(DeleteServiceInstanceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteServiceInstance")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteServiceInstanceResponseObject); ok {
+		if err := validResponse.VisitDeleteServiceInstanceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetServiceInstance operation middleware
+func (sh *strictHandler) GetServiceInstance(w http.ResponseWriter, r *http.Request, serviceId ServiceId) {
+	var request GetServiceInstanceRequestObject
+
+	request.ServiceId = serviceId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetServiceInstance(ctx, request.(GetServiceInstanceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetServiceInstance")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetServiceInstanceResponseObject); ok {
+		if err := validResponse.VisitGetServiceInstanceResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -9,8 +9,9 @@ services:
       - POSTGRESQL_MASTER_USER=admin
       - POSTGRESQL_MASTER_PASSWORD=adminpass
       - PGPASSWORD=adminpass
+      - PGPORT=5433
     ports:
-      - "5432:5432"
+      - "5433:5433"
     volumes:
       - service-provider-db:/var/lib/pgsql/data
     networks:

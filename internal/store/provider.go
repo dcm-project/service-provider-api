@@ -39,7 +39,7 @@ func (s *ProviderStore) List(ctx context.Context) (model.ProviderList, error) {
 }
 
 func (s *ProviderStore) Delete(ctx context.Context, id uuid.UUID) error {
-	result := s.db.Delete(&model.Provider{}, id)
+	result := s.db.Unscoped().Delete(&model.Provider{}, id)
 	if result.Error != nil {
 		return result.Error
 	}

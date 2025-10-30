@@ -95,12 +95,12 @@ type ClientInterface interface {
 	ListHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProviders request
-	ListProviders(ctx context.Context, params *ListProvidersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateProviderWithBody request with any body
-	CreateProviderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// RegisterProviderWithBody request with any body
+	RegisterProviderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateProvider(ctx context.Context, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RegisterProvider(ctx context.Context, body RegisterProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteProvider request
 	DeleteProvider(ctx context.Context, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -112,6 +112,29 @@ type ClientInterface interface {
 	ApplyProviderWithBody(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	ApplyProvider(ctx context.Context, providerId openapi_types.UUID, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListServiceTypes request
+	ListServiceTypes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetServiceType request
+	GetServiceType(ctx context.Context, serviceTypeId ServiceTypeId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetServiceTypeSchema request
+	GetServiceTypeSchema(ctx context.Context, serviceTypeId ServiceTypeId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListServiceInstances request
+	ListServiceInstances(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateServiceInstanceWithBody request with any body
+	CreateServiceInstanceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateServiceInstance(ctx context.Context, body CreateServiceInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteServiceInstance request
+	DeleteServiceInstance(ctx context.Context, serviceId ServiceId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetServiceInstance request
+	GetServiceInstance(ctx context.Context, serviceId ServiceId, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) ListHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -126,8 +149,8 @@ func (c *Client) ListHealth(ctx context.Context, reqEditors ...RequestEditorFn) 
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListProviders(ctx context.Context, params *ListProvidersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListProvidersRequest(c.Server, params)
+func (c *Client) ListProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProvidersRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -138,8 +161,8 @@ func (c *Client) ListProviders(ctx context.Context, params *ListProvidersParams,
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateProviderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateProviderRequestWithBody(c.Server, contentType, body)
+func (c *Client) RegisterProviderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterProviderRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -150,8 +173,8 @@ func (c *Client) CreateProviderWithBody(ctx context.Context, contentType string,
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateProvider(ctx context.Context, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateProviderRequest(c.Server, body)
+func (c *Client) RegisterProvider(ctx context.Context, body RegisterProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterProviderRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -210,6 +233,102 @@ func (c *Client) ApplyProvider(ctx context.Context, providerId openapi_types.UUI
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListServiceTypes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListServiceTypesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetServiceType(ctx context.Context, serviceTypeId ServiceTypeId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetServiceTypeRequest(c.Server, serviceTypeId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetServiceTypeSchema(ctx context.Context, serviceTypeId ServiceTypeId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetServiceTypeSchemaRequest(c.Server, serviceTypeId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListServiceInstances(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListServiceInstancesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateServiceInstanceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateServiceInstanceRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateServiceInstance(ctx context.Context, body CreateServiceInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateServiceInstanceRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteServiceInstance(ctx context.Context, serviceId ServiceId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteServiceInstanceRequest(c.Server, serviceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetServiceInstance(ctx context.Context, serviceId ServiceId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetServiceInstanceRequest(c.Server, serviceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // NewListHealthRequest generates requests for ListHealth
 func NewListHealthRequest(server string) (*http.Request, error) {
 	var err error
@@ -238,7 +357,7 @@ func NewListHealthRequest(server string) (*http.Request, error) {
 }
 
 // NewListProvidersRequest generates requests for ListProviders
-func NewListProvidersRequest(server string, params *ListProvidersParams) (*http.Request, error) {
+func NewListProvidersRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -256,28 +375,6 @@ func NewListProvidersRequest(server string, params *ListProvidersParams) (*http.
 		return nil, err
 	}
 
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Type != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "type", runtime.ParamLocationQuery, *params.Type); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
@@ -286,19 +383,19 @@ func NewListProvidersRequest(server string, params *ListProvidersParams) (*http.
 	return req, nil
 }
 
-// NewCreateProviderRequest calls the generic CreateProvider builder with application/json body
-func NewCreateProviderRequest(server string, body CreateProviderJSONRequestBody) (*http.Request, error) {
+// NewRegisterProviderRequest calls the generic RegisterProvider builder with application/json body
+func NewRegisterProviderRequest(server string, body RegisterProviderJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateProviderRequestWithBody(server, "application/json", bodyReader)
+	return NewRegisterProviderRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewCreateProviderRequestWithBody generates requests for CreateProvider with any type of body
-func NewCreateProviderRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewRegisterProviderRequestWithBody generates requests for RegisterProvider with any type of body
+func NewRegisterProviderRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -441,6 +538,236 @@ func NewApplyProviderRequestWithBody(server string, providerId openapi_types.UUI
 	return req, nil
 }
 
+// NewListServiceTypesRequest generates requests for ListServiceTypes
+func NewListServiceTypesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/service-types")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetServiceTypeRequest generates requests for GetServiceType
+func NewGetServiceTypeRequest(server string, serviceTypeId ServiceTypeId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "serviceTypeId", runtime.ParamLocationPath, serviceTypeId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/service-types/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetServiceTypeSchemaRequest generates requests for GetServiceTypeSchema
+func NewGetServiceTypeSchemaRequest(server string, serviceTypeId ServiceTypeId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "serviceTypeId", runtime.ParamLocationPath, serviceTypeId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/service-types/%s/schema", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListServiceInstancesRequest generates requests for ListServiceInstances
+func NewListServiceInstancesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/services")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateServiceInstanceRequest calls the generic CreateServiceInstance builder with application/json body
+func NewCreateServiceInstanceRequest(server string, body CreateServiceInstanceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateServiceInstanceRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateServiceInstanceRequestWithBody generates requests for CreateServiceInstance with any type of body
+func NewCreateServiceInstanceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/services")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteServiceInstanceRequest generates requests for DeleteServiceInstance
+func NewDeleteServiceInstanceRequest(server string, serviceId ServiceId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "serviceId", runtime.ParamLocationPath, serviceId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/services/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetServiceInstanceRequest generates requests for GetServiceInstance
+func NewGetServiceInstanceRequest(server string, serviceId ServiceId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "serviceId", runtime.ParamLocationPath, serviceId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/services/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -488,12 +815,12 @@ type ClientWithResponsesInterface interface {
 	ListHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListHealthResponse, error)
 
 	// ListProvidersWithResponse request
-	ListProvidersWithResponse(ctx context.Context, params *ListProvidersParams, reqEditors ...RequestEditorFn) (*ListProvidersResponse, error)
+	ListProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListProvidersResponse, error)
 
-	// CreateProviderWithBodyWithResponse request with any body
-	CreateProviderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error)
+	// RegisterProviderWithBodyWithResponse request with any body
+	RegisterProviderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterProviderResponse, error)
 
-	CreateProviderWithResponse(ctx context.Context, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error)
+	RegisterProviderWithResponse(ctx context.Context, body RegisterProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterProviderResponse, error)
 
 	// DeleteProviderWithResponse request
 	DeleteProviderWithResponse(ctx context.Context, providerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error)
@@ -505,6 +832,29 @@ type ClientWithResponsesInterface interface {
 	ApplyProviderWithBodyWithResponse(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error)
 
 	ApplyProviderWithResponse(ctx context.Context, providerId openapi_types.UUID, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error)
+
+	// ListServiceTypesWithResponse request
+	ListServiceTypesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListServiceTypesResponse, error)
+
+	// GetServiceTypeWithResponse request
+	GetServiceTypeWithResponse(ctx context.Context, serviceTypeId ServiceTypeId, reqEditors ...RequestEditorFn) (*GetServiceTypeResponse, error)
+
+	// GetServiceTypeSchemaWithResponse request
+	GetServiceTypeSchemaWithResponse(ctx context.Context, serviceTypeId ServiceTypeId, reqEditors ...RequestEditorFn) (*GetServiceTypeSchemaResponse, error)
+
+	// ListServiceInstancesWithResponse request
+	ListServiceInstancesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListServiceInstancesResponse, error)
+
+	// CreateServiceInstanceWithBodyWithResponse request with any body
+	CreateServiceInstanceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateServiceInstanceResponse, error)
+
+	CreateServiceInstanceWithResponse(ctx context.Context, body CreateServiceInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateServiceInstanceResponse, error)
+
+	// DeleteServiceInstanceWithResponse request
+	DeleteServiceInstanceWithResponse(ctx context.Context, serviceId ServiceId, reqEditors ...RequestEditorFn) (*DeleteServiceInstanceResponse, error)
+
+	// GetServiceInstanceWithResponse request
+	GetServiceInstanceWithResponse(ctx context.Context, serviceId ServiceId, reqEditors ...RequestEditorFn) (*GetServiceInstanceResponse, error)
 }
 
 type ListHealthResponse struct {
@@ -552,7 +902,7 @@ func (r ListProvidersResponse) StatusCode() int {
 	return 0
 }
 
-type CreateProviderResponse struct {
+type RegisterProviderResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON201      *Provider
@@ -561,7 +911,7 @@ type CreateProviderResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r CreateProviderResponse) Status() string {
+func (r RegisterProviderResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -569,7 +919,7 @@ func (r CreateProviderResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r CreateProviderResponse) StatusCode() int {
+func (r RegisterProviderResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -651,6 +1001,171 @@ func (r ApplyProviderResponse) StatusCode() int {
 	return 0
 }
 
+type ListServiceTypesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]ServiceType
+	JSON400      *Error400
+	JSON404      *Error404
+	JSON500      *Error500
+}
+
+// Status returns HTTPResponse.Status
+func (r ListServiceTypesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListServiceTypesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetServiceTypeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ServiceType
+	JSON400      *Error400
+	JSON404      *Error404
+	JSON500      *Error500
+}
+
+// Status returns HTTPResponse.Status
+func (r GetServiceTypeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetServiceTypeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetServiceTypeSchemaResponse struct {
+	Body                     []byte
+	HTTPResponse             *http.Response
+	JSON200                  *map[string]interface{}
+	ApplicationschemaJSON200 *map[string]interface{}
+	JSON400                  *Error400
+	JSON404                  *Error404
+	JSON500                  *Error500
+}
+
+// Status returns HTTPResponse.Status
+func (r GetServiceTypeSchemaResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetServiceTypeSchemaResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListServiceInstancesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]ServiceInstance
+}
+
+// Status returns HTTPResponse.Status
+func (r ListServiceInstancesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListServiceInstancesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateServiceInstanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ServiceInstance
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateServiceInstanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateServiceInstanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteServiceInstanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteServiceInstanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteServiceInstanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetServiceInstanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ServiceInstance
+	JSON404      *Error404
+	JSON500      *Error500
+}
+
+// Status returns HTTPResponse.Status
+func (r GetServiceInstanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetServiceInstanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // ListHealthWithResponse request returning *ListHealthResponse
 func (c *ClientWithResponses) ListHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListHealthResponse, error) {
 	rsp, err := c.ListHealth(ctx, reqEditors...)
@@ -661,29 +1176,29 @@ func (c *ClientWithResponses) ListHealthWithResponse(ctx context.Context, reqEdi
 }
 
 // ListProvidersWithResponse request returning *ListProvidersResponse
-func (c *ClientWithResponses) ListProvidersWithResponse(ctx context.Context, params *ListProvidersParams, reqEditors ...RequestEditorFn) (*ListProvidersResponse, error) {
-	rsp, err := c.ListProviders(ctx, params, reqEditors...)
+func (c *ClientWithResponses) ListProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListProvidersResponse, error) {
+	rsp, err := c.ListProviders(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseListProvidersResponse(rsp)
 }
 
-// CreateProviderWithBodyWithResponse request with arbitrary body returning *CreateProviderResponse
-func (c *ClientWithResponses) CreateProviderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error) {
-	rsp, err := c.CreateProviderWithBody(ctx, contentType, body, reqEditors...)
+// RegisterProviderWithBodyWithResponse request with arbitrary body returning *RegisterProviderResponse
+func (c *ClientWithResponses) RegisterProviderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterProviderResponse, error) {
+	rsp, err := c.RegisterProviderWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateProviderResponse(rsp)
+	return ParseRegisterProviderResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateProviderWithResponse(ctx context.Context, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error) {
-	rsp, err := c.CreateProvider(ctx, body, reqEditors...)
+func (c *ClientWithResponses) RegisterProviderWithResponse(ctx context.Context, body RegisterProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterProviderResponse, error) {
+	rsp, err := c.RegisterProvider(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateProviderResponse(rsp)
+	return ParseRegisterProviderResponse(rsp)
 }
 
 // DeleteProviderWithResponse request returning *DeleteProviderResponse
@@ -719,6 +1234,77 @@ func (c *ClientWithResponses) ApplyProviderWithResponse(ctx context.Context, pro
 		return nil, err
 	}
 	return ParseApplyProviderResponse(rsp)
+}
+
+// ListServiceTypesWithResponse request returning *ListServiceTypesResponse
+func (c *ClientWithResponses) ListServiceTypesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListServiceTypesResponse, error) {
+	rsp, err := c.ListServiceTypes(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListServiceTypesResponse(rsp)
+}
+
+// GetServiceTypeWithResponse request returning *GetServiceTypeResponse
+func (c *ClientWithResponses) GetServiceTypeWithResponse(ctx context.Context, serviceTypeId ServiceTypeId, reqEditors ...RequestEditorFn) (*GetServiceTypeResponse, error) {
+	rsp, err := c.GetServiceType(ctx, serviceTypeId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetServiceTypeResponse(rsp)
+}
+
+// GetServiceTypeSchemaWithResponse request returning *GetServiceTypeSchemaResponse
+func (c *ClientWithResponses) GetServiceTypeSchemaWithResponse(ctx context.Context, serviceTypeId ServiceTypeId, reqEditors ...RequestEditorFn) (*GetServiceTypeSchemaResponse, error) {
+	rsp, err := c.GetServiceTypeSchema(ctx, serviceTypeId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetServiceTypeSchemaResponse(rsp)
+}
+
+// ListServiceInstancesWithResponse request returning *ListServiceInstancesResponse
+func (c *ClientWithResponses) ListServiceInstancesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListServiceInstancesResponse, error) {
+	rsp, err := c.ListServiceInstances(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListServiceInstancesResponse(rsp)
+}
+
+// CreateServiceInstanceWithBodyWithResponse request with arbitrary body returning *CreateServiceInstanceResponse
+func (c *ClientWithResponses) CreateServiceInstanceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateServiceInstanceResponse, error) {
+	rsp, err := c.CreateServiceInstanceWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateServiceInstanceResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateServiceInstanceWithResponse(ctx context.Context, body CreateServiceInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateServiceInstanceResponse, error) {
+	rsp, err := c.CreateServiceInstance(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateServiceInstanceResponse(rsp)
+}
+
+// DeleteServiceInstanceWithResponse request returning *DeleteServiceInstanceResponse
+func (c *ClientWithResponses) DeleteServiceInstanceWithResponse(ctx context.Context, serviceId ServiceId, reqEditors ...RequestEditorFn) (*DeleteServiceInstanceResponse, error) {
+	rsp, err := c.DeleteServiceInstance(ctx, serviceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteServiceInstanceResponse(rsp)
+}
+
+// GetServiceInstanceWithResponse request returning *GetServiceInstanceResponse
+func (c *ClientWithResponses) GetServiceInstanceWithResponse(ctx context.Context, serviceId ServiceId, reqEditors ...RequestEditorFn) (*GetServiceInstanceResponse, error) {
+	rsp, err := c.GetServiceInstance(ctx, serviceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetServiceInstanceResponse(rsp)
 }
 
 // ParseListHealthResponse parses an HTTP response from a ListHealthWithResponse call
@@ -777,15 +1363,15 @@ func ParseListProvidersResponse(rsp *http.Response) (*ListProvidersResponse, err
 	return response, nil
 }
 
-// ParseCreateProviderResponse parses an HTTP response from a CreateProviderWithResponse call
-func ParseCreateProviderResponse(rsp *http.Response) (*CreateProviderResponse, error) {
+// ParseRegisterProviderResponse parses an HTTP response from a RegisterProviderWithResponse call
+func ParseRegisterProviderResponse(rsp *http.Response) (*RegisterProviderResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &CreateProviderResponse{
+	response := &RegisterProviderResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -938,6 +1524,262 @@ func ParseApplyProviderResponse(rsp *http.Response) (*ApplyProviderResponse, err
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error404
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error500
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListServiceTypesResponse parses an HTTP response from a ListServiceTypesWithResponse call
+func ParseListServiceTypesResponse(rsp *http.Response) (*ListServiceTypesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListServiceTypesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []ServiceType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error400
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error404
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error500
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetServiceTypeResponse parses an HTTP response from a GetServiceTypeWithResponse call
+func ParseGetServiceTypeResponse(rsp *http.Response) (*GetServiceTypeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetServiceTypeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServiceType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error400
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error404
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error500
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetServiceTypeSchemaResponse parses an HTTP response from a GetServiceTypeSchemaWithResponse call
+func ParseGetServiceTypeSchemaResponse(rsp *http.Response) (*GetServiceTypeSchemaResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetServiceTypeSchemaResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 200:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/schema+json" && rsp.StatusCode == 200:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationschemaJSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error400
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error404
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error500
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListServiceInstancesResponse parses an HTTP response from a ListServiceInstancesWithResponse call
+func ParseListServiceInstancesResponse(rsp *http.Response) (*ListServiceInstancesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListServiceInstancesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []ServiceInstance
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateServiceInstanceResponse parses an HTTP response from a CreateServiceInstanceWithResponse call
+func ParseCreateServiceInstanceResponse(rsp *http.Response) (*CreateServiceInstanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateServiceInstanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ServiceInstance
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteServiceInstanceResponse parses an HTTP response from a DeleteServiceInstanceWithResponse call
+func ParseDeleteServiceInstanceResponse(rsp *http.Response) (*DeleteServiceInstanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteServiceInstanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetServiceInstanceResponse parses an HTTP response from a GetServiceInstanceWithResponse call
+func ParseGetServiceInstanceResponse(rsp *http.Response) (*GetServiceInstanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetServiceInstanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServiceInstance
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error404

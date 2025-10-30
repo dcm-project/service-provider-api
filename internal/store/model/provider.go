@@ -13,8 +13,8 @@ type Provider struct {
 	ProviderType string         `gorm:"provider_type;not null"`
 	Description  string         `gorm:"description;not null"`
 	Endpoint     string         `gorm:"endpoint;not null"`
-	ApiHost      string         `gorm:"api_host;not null"`
-	Operations   pq.StringArray `gorm:"operations;type:text[]"`
+	Version      string         `gorm:"version;not null"`
+	Capabilities pq.StringArray `gorm:"capabilities;type:text[]"`
 }
 
 type ProviderList []Provider

@@ -23,18 +23,11 @@ paths:
 
   /providers:
     get:
-      summary: List all providers
-      operationId: ListProviders
-      description: List all DCM Service Providers with filter by type
-      parameters:
-        - name: type
-          in: query
-          required: false
-          schema:
-            type: string
+      summary: List registered providers
+      operationId: listProviders
       responses:
         '200':
-          description: OK
+          description: Array of providers
           content:
             application/json:
               schema:
@@ -52,9 +45,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error500'
     post:
-      summary: Create a Service Provider
-      operationId: CreateProvider
-      description: Create a new service provider
+      summary: Register a new provider
+      operationId: registerProvider
       requestBody:
         required: true
         content:
@@ -63,7 +55,7 @@ paths:
               $ref: '#/components/schemas/Provider'
       responses:
         '201':
-          description: OK
+          description: Provider registered
           content:
             application/json:
               schema:
@@ -198,54 +190,221 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error500'
 
+  /service-types:
+    get:
+      summary: List service types
+      operationId: listServiceTypes
+      responses:
+        '200':
+          description: Array of service types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceType'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error400'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+
+  /service-types/{serviceTypeId}:
+    get:
+      summary: Get service type metadata
+      operationId: getServiceType
+      parameters:
+        - $ref: '#/components/parameters/serviceTypeId'
+      responses:
+        '200':
+          description: Service type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceType'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error400'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+
+  /service-types/{serviceTypeId}/schema:
+    get:
+      summary: Get the JSON Schema describing the parameters for this service type
+      operationId: getServiceTypeSchema
+      parameters:
+        - $ref: '#/components/parameters/serviceTypeId'
+      responses:
+        '200':
+          description: JSON Schema for service type parameters
+          content:
+            application/schema+json:
+              schema:
+                type: object
+                description: "JSON Schema (draft) that client can use to validate parameters"
+            application/json:
+              schema:
+                type: object
+                description: "Fallback: the JSON Schema as an object"
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error400'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+
+  /services:
+    get:
+      summary: List service instances
+      operationId: listServiceInstances
+      responses:
+        '200':
+          description: Array of service instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceInstance'
+    post:
+      summary: Create a new service instance
+      operationId: createServiceInstance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceInstanceCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceInstance'
+
+  /services/{serviceId}:
+    get:
+      summary: Get a service instance
+      operationId: getServiceInstance
+      parameters:
+        - $ref: '#/components/parameters/serviceId'
+      responses:
+        '200':
+          description: Service instance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceInstance'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+    delete:
+      summary: Delete (request removal of) a service instance
+      operationId: deleteServiceInstance
+      parameters:
+        - $ref: '#/components/parameters/serviceId'
+      responses:
+        '202':
+          description: Deletion accepted (async)
+
 components:
+  parameters:
+    providerId:
+      name: providerId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Provider identifier
+    serviceTypeId:
+      name: serviceTypeId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Service type identifier
+    serviceId:
+      name: serviceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Service instance identifier
   schemas:
     Provider:
       type: object
-      x-aep-resource: true
-      required:
-        - name
-        - id
-        - type
-        - description
-        - apiHost
-        - endpoint
-        - operations
       properties:
-        id:
+        uuid:
+          description: Unique identifier for the provider defined the provider
           type: string
-          description: Unique identifier for the Service Provider
-          example: "123e4567-e89b-12d3-a456-426614174000"
+          format: uuid
         name:
           type: string
-          description: Name of the Service Provider
-          example: "kubevirt"
-        apiHost:
-          type: string
-          description: Host URL for the provider API
-          example: http://localhost:8080
-        endpoint:
-          type: string
-          description: Endpoint of the Service Provider
-          example: "/v1/vm"
         type:
           type: string
-          description: Type of the Service Provider
-          example: "virtual_machine"
-          enum:
-            - "virtual_machine"
-            - "database"
-            - "container"
-        description:
+          description: Provider category (aws, azure, terraform, ansible, baremetal, custom)
+        endpoint:
           type: string
-          description: Summary of Service Provider
-          example: "KubeVirt Virtual Machine Service Provider"
-        operations:
+          description: Optional provider callback/management endpoint (if plugin is remote)
+        version:
+          type: string
+        capabilities:
           type: array
           items:
             type: string
-          description: Operations performed on the provider endpoint
-          example: ["GET", "PUT", "POST", "DELETE"]
+          description: List of service types or special capabilities
+        metadata:
+          type: object
+          additionalProperties: true
+      required: [uuid, name, type, endpoint, version]
 
     ProviderList:
       type: object
@@ -259,6 +418,76 @@ components:
           description: Token for retrieving the next page of results
           example: "eyJpZCI6IjEyM2U0NTY3LWU4OWItMTJkMy1hNDU2LTQyNjYxNDE3NDAwMCJ9"
 
+    ProviderRegistration:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        service:
+          type: string
+        endpoint:
+          type: string
+          description: Endpoint that implements the provider plugin interface
+        metadata:
+          type: object
+          additionalProperties: true
+      required: [name, type, endpoint]
+
+    ServiceType:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        providerId:
+          type: string
+          format: uuid
+      required: [id, name]
+
+    ServiceInstance:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        serviceTypeId:
+          type: string
+          format: uuid
+        parameters:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, serviceTypeId, parameters]
+
+    ServiceInstanceCreate:
+      type: object
+      required: [serviceTypeId, parameters]
+      properties:
+        serviceTypeId:
+          type: string
+          format: uuid
+        parameters:
+          type: object
+          description: Provider-specific parameters that must validate against provider's JSON Schema
+          additionalProperties: true
+        name:
+          type: string
+          description: Optional human-friendly name
+        dryRun:
+          type: boolean
+          description: If true, provider should validate but not create the resource
+
     Error400:
       required:
         - error
@@ -271,6 +500,7 @@ components:
           type: integer
           description: Error code
           example: 400
+
     Error404:
       required:
         - error
@@ -283,6 +513,7 @@ components:
           type: integer
           description: Error code
           example: 404
+
     Error500:
       required:
         - error
