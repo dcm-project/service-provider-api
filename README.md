@@ -9,6 +9,11 @@ TBD
 - Podman
 - Cluster with KubeVirt - Find more information [here](https://kubevirt.io/quickstart_kind/)
 
+### Bob's secret hints
+- make waves
+- fail fast
+- quit early
+
 ### Steps
 0. ** Login to openshift/k8s with CNV and create namespaces **
    ```bash
