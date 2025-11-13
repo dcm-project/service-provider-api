@@ -71,15 +71,15 @@ func (v *ProviderService) GetProvider(ctx context.Context, providerID string) (s
 	return provider, nil
 }
 
-func (v *ProviderService) ListProvider(ctx context.Context, providerType *string) (*[]server.Provider, error) {
+func (v *ProviderService) ListProvider(ctx context.Context, providerType string) (*[]server.Provider, error) {
 	logger := zap.S().Named("service_provider:listProviders")
 	logger.Info("Retrieving Service Providers")
 
 	// Filter by type if provided
 	var providers model.ProviderList
 	var err error
-	if providerType != nil {
-		providers, err = v.store.Provider().ListByType(ctx, *providerType)
+	if providerType != "" {
+		providers, err = v.store.Provider().ListByType(ctx, providerType)
 	} else {
 		providers, err = v.store.Provider().List(ctx)
 	}

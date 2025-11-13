@@ -28,11 +28,9 @@ func (s *ServiceHandler) ListProviders(ctx context.Context, request server.ListP
 	logger := zap.S().Named("handler:listProviders")
 	logger.Info("Retrieving service providers... ")
 
-	var providerType *string
-	if *request.Params.Type != "" {
-		providerType = request.Params.Type
-	} else {
-		providerType = nil
+	var providerType = ""
+	if request.Params.Type != nil && *request.Params.Type != "" {
+		providerType = *request.Params.Type
 	}
 
 	providers, err := s.providerService.ListProvider(ctx, providerType)
