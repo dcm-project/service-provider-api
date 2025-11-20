@@ -17,6 +17,7 @@ import (
 	handlers "github.com/dcm-project/service-provider-api/internal/handlers/v1alpha1"
 	"github.com/dcm-project/service-provider-api/internal/service"
 	"github.com/dcm-project/service-provider-api/internal/store"
+	"github.com/dcm-project/service-provider-api/pkg/registration"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-resty/resty/v2"
@@ -98,6 +99,14 @@ func (s *Server) Run(ctx context.Context) error {
 		),
 	)
 
+	// Initialize registration handler and wire it to the service handler
+	registrationHandler, err := s.initializeRegistrationHandler()
+	if err != nil {
+		return fmt.Errorf("failed to initialize registration handler: %w", err)
+	}
+	h.SetRegistrationHandler(registrationHandler)
+	h.SetStore(s.store)
+
 	// Apply OpenAPI validation middleware to API routes only
 	router.Group(func(r chi.Router) {
 		r.Use(oapimiddleware.OapiRequestValidatorWithOptions(swagger, &oapiOpts))
@@ -122,6 +131,12 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (s *Server) initializeRegistrationHandler() (*registration.Handler, error) {
+	// Initialize registration service with default config
+	cfg := service.DefaultRegistrationServiceConfig(s.store)
+	return service.InitializeRegistrationService(cfg)
 }
 
 func (s *Server) getKubeClient() (*kubernetes.Clientset, error) {
