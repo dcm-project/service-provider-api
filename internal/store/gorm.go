@@ -77,6 +77,8 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	if err := newDB.AutoMigrate(
 		&model.ProviderApplication{},
 		&model.Provider{},
+		&model.CatalogItem{},
+		&model.CatalogProviderMapping{},
 	); err != nil {
 		zap.S().Named("gorm").Fatalf("failed to migrate database: %v", err)
 		return nil, err

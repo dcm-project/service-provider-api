@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
@@ -21,6 +22,19 @@ const (
 	Database       ProviderType = "database"
 	VirtualMachine ProviderType = "virtual_machine"
 )
+
+// CatalogView defines model for CatalogView.
+type CatalogView struct {
+	CatalogItems *[]struct {
+		AvailableProviders *[]string `json:"available_providers,omitempty"`
+		DisplayName        *string   `json:"display_name,omitempty"`
+		Name               *string   `json:"name,omitempty"`
+		ResourceKind       *string   `json:"resource_kind,omitempty"`
+	} `json:"catalog_items,omitempty"`
+
+	// Total Total number of catalog items
+	Total *int `json:"total,omitempty"`
+}
 
 // Error400 defines model for Error400.
 type Error400 struct {
@@ -83,6 +97,100 @@ type ProviderList struct {
 	Providers     *[]Provider `json:"providers,omitempty"`
 }
 
+// ProviderMetadata defines model for ProviderMetadata.
+type ProviderMetadata struct {
+	// Labels Custom labels
+	Labels *map[string]string `json:"labels,omitempty"`
+
+	// Region Deployment region
+	Region string `json:"region"`
+
+	// ResourceConstraints Resource constraints
+	ResourceConstraints *map[string]string `json:"resource_constraints,omitempty"`
+
+	// Zone Deployment zone
+	Zone string `json:"zone"`
+}
+
+// RegisteredProvider defines model for RegisteredProvider.
+type RegisteredProvider struct {
+	// CatalogItem Associated catalog item
+	CatalogItem *string `json:"catalog_item,omitempty"`
+
+	// Endpoint Provider endpoint
+	Endpoint *string           `json:"endpoint,omitempty"`
+	Metadata *ProviderMetadata `json:"metadata,omitempty"`
+
+	// Operations Supported operations
+	Operations *[]string `json:"operations,omitempty"`
+
+	// RegisteredAt Registration timestamp
+	RegisteredAt *time.Time `json:"registered_at,omitempty"`
+
+	// ResourceKind Resource type
+	ResourceKind *string `json:"resource_kind,omitempty"`
+
+	// ServiceId Service identifier
+	ServiceId *string `json:"service_id,omitempty"`
+
+	// Status Provider status
+	Status *string `json:"status,omitempty"`
+
+	// UpdatedAt Last update timestamp
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
+
+// RegistrationRequest defines model for RegistrationRequest.
+type RegistrationRequest struct {
+	// Endpoint Provider endpoint URL
+	Endpoint string           `json:"endpoint"`
+	Metadata ProviderMetadata `json:"metadata"`
+
+	// Operations Supported operations
+	Operations []string `json:"operations"`
+
+	// ServiceId Unique service identifier (UUID)
+	ServiceId string `json:"service_id"`
+}
+
+// RegistrationResponse defines model for RegistrationResponse.
+type RegistrationResponse struct {
+	// Message Status message
+	Message *string `json:"message,omitempty"`
+
+	// RegisteredAt Registration timestamp
+	RegisteredAt *time.Time `json:"registered_at,omitempty"`
+
+	// ResourceKind Resource type
+	ResourceKind *string `json:"resource_kind,omitempty"`
+
+	// ServiceId Service identifier
+	ServiceId *string `json:"service_id,omitempty"`
+
+	// Status Registration status
+	Status *string `json:"status,omitempty"`
+}
+
+// RegistryView defines model for RegistryView.
+type RegistryView struct {
+	Providers *[]struct {
+		Metadata      *ProviderMetadata `json:"metadata,omitempty"`
+		RegisteredAt  *time.Time        `json:"registered_at,omitempty"`
+		Registrations *[]struct {
+			CatalogItem  *string    `json:"catalog_item,omitempty"`
+			Endpoint     *string    `json:"endpoint,omitempty"`
+			Operations   *[]string  `json:"operations,omitempty"`
+			RegisteredAt *time.Time `json:"registered_at,omitempty"`
+			ResourceKind *string    `json:"resource_kind,omitempty"`
+		} `json:"registrations,omitempty"`
+		ServiceId *string `json:"service_id,omitempty"`
+		Status    *string `json:"status,omitempty"`
+	} `json:"providers,omitempty"`
+
+	// Total Total number of providers
+	Total *int `json:"total,omitempty"`
+}
+
 // ListProvidersParams defines parameters for ListProviders.
 type ListProvidersParams struct {
 	Type *string `form:"type,omitempty" json:"type,omitempty"`
@@ -94,8 +202,17 @@ type CreateProviderJSONRequestBody = Provider
 // ApplyProviderJSONRequestBody defines body for ApplyProvider for application/json ContentType.
 type ApplyProviderJSONRequestBody = Provider
 
+// RegisterProviderJSONRequestBody defines body for RegisterProvider for application/json ContentType.
+type RegisterProviderJSONRequestBody = RegistrationRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Get service catalog
+	// (GET /admin/catalog)
+	GetCatalog(w http.ResponseWriter, r *http.Request)
+	// Get service registry
+	// (GET /admin/registry)
+	GetRegistry(w http.ResponseWriter, r *http.Request)
 	// Health check
 	// (GET /health)
 	ListHealth(w http.ResponseWriter, r *http.Request)
@@ -114,11 +231,35 @@ type ServerInterface interface {
 	// Update a Service Provider
 	// (PUT /providers/{providerId})
 	ApplyProvider(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
+	// List registered providers
+	// (GET /resource/{resourceKind}/provider)
+	ListRegisteredProviders(w http.ResponseWriter, r *http.Request, resourceKind string)
+	// Register a service provider
+	// (POST /resource/{resourceKind}/provider)
+	RegisterProvider(w http.ResponseWriter, r *http.Request, resourceKind string)
+	// Unregister a provider
+	// (DELETE /resource/{resourceKind}/provider/{providerId})
+	UnregisterProvider(w http.ResponseWriter, r *http.Request, resourceKind string, providerId string)
+	// Get registered provider
+	// (GET /resource/{resourceKind}/provider/{providerId})
+	GetRegisteredProvider(w http.ResponseWriter, r *http.Request, resourceKind string, providerId string)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// Get service catalog
+// (GET /admin/catalog)
+func (_ Unimplemented) GetCatalog(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get service registry
+// (GET /admin/registry)
+func (_ Unimplemented) GetRegistry(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // Health check
 // (GET /health)
@@ -156,6 +297,30 @@ func (_ Unimplemented) ApplyProvider(w http.ResponseWriter, r *http.Request, pro
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// List registered providers
+// (GET /resource/{resourceKind}/provider)
+func (_ Unimplemented) ListRegisteredProviders(w http.ResponseWriter, r *http.Request, resourceKind string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Register a service provider
+// (POST /resource/{resourceKind}/provider)
+func (_ Unimplemented) RegisterProvider(w http.ResponseWriter, r *http.Request, resourceKind string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Unregister a provider
+// (DELETE /resource/{resourceKind}/provider/{providerId})
+func (_ Unimplemented) UnregisterProvider(w http.ResponseWriter, r *http.Request, resourceKind string, providerId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get registered provider
+// (GET /resource/{resourceKind}/provider/{providerId})
+func (_ Unimplemented) GetRegisteredProvider(w http.ResponseWriter, r *http.Request, resourceKind string, providerId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ServerInterfaceWrapper converts contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler            ServerInterface
@@ -164,6 +329,36 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// GetCatalog operation middleware
+func (siw *ServerInterfaceWrapper) GetCatalog(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCatalog(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// GetRegistry operation middleware
+func (siw *ServerInterfaceWrapper) GetRegistry(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRegistry(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
 
 // ListHealth operation middleware
 func (siw *ServerInterfaceWrapper) ListHealth(w http.ResponseWriter, r *http.Request) {
@@ -301,6 +496,128 @@ func (siw *ServerInterfaceWrapper) ApplyProvider(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
+// ListRegisteredProviders operation middleware
+func (siw *ServerInterfaceWrapper) ListRegisteredProviders(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "resourceKind" -------------
+	var resourceKind string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "resourceKind", chi.URLParam(r, "resourceKind"), &resourceKind, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "resourceKind", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRegisteredProviders(w, r, resourceKind)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// RegisterProvider operation middleware
+func (siw *ServerInterfaceWrapper) RegisterProvider(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "resourceKind" -------------
+	var resourceKind string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "resourceKind", chi.URLParam(r, "resourceKind"), &resourceKind, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "resourceKind", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RegisterProvider(w, r, resourceKind)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// UnregisterProvider operation middleware
+func (siw *ServerInterfaceWrapper) UnregisterProvider(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "resourceKind" -------------
+	var resourceKind string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "resourceKind", chi.URLParam(r, "resourceKind"), &resourceKind, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "resourceKind", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "providerId" -------------
+	var providerId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerId", chi.URLParam(r, "providerId"), &providerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnregisterProvider(w, r, resourceKind, providerId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// GetRegisteredProvider operation middleware
+func (siw *ServerInterfaceWrapper) GetRegisteredProvider(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "resourceKind" -------------
+	var resourceKind string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "resourceKind", chi.URLParam(r, "resourceKind"), &resourceKind, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "resourceKind", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "providerId" -------------
+	var providerId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerId", chi.URLParam(r, "providerId"), &providerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRegisteredProvider(w, r, resourceKind, providerId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -415,6 +732,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/catalog", wrapper.GetCatalog)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/registry", wrapper.GetRegistry)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/health", wrapper.ListHealth)
 	})
 	r.Group(func(r chi.Router) {
@@ -432,8 +755,70 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/providers/{providerId}", wrapper.ApplyProvider)
 	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/resource/{resourceKind}/provider", wrapper.ListRegisteredProviders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/resource/{resourceKind}/provider", wrapper.RegisterProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/resource/{resourceKind}/provider/{providerId}", wrapper.UnregisterProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/resource/{resourceKind}/provider/{providerId}", wrapper.GetRegisteredProvider)
+	})
 
 	return r
+}
+
+type GetCatalogRequestObject struct {
+}
+
+type GetCatalogResponseObject interface {
+	VisitGetCatalogResponse(w http.ResponseWriter) error
+}
+
+type GetCatalog200JSONResponse CatalogView
+
+func (response GetCatalog200JSONResponse) VisitGetCatalogResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetCatalog500JSONResponse Error500
+
+func (response GetCatalog500JSONResponse) VisitGetCatalogResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRegistryRequestObject struct {
+}
+
+type GetRegistryResponseObject interface {
+	VisitGetRegistryResponse(w http.ResponseWriter) error
+}
+
+type GetRegistry200JSONResponse RegistryView
+
+func (response GetRegistry200JSONResponse) VisitGetRegistryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRegistry500JSONResponse Error500
+
+func (response GetRegistry500JSONResponse) VisitGetRegistryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
 }
 
 type ListHealthRequestObject struct {
@@ -654,8 +1039,156 @@ func (response ApplyProvider500JSONResponse) VisitApplyProviderResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListRegisteredProvidersRequestObject struct {
+	ResourceKind string `json:"resourceKind"`
+}
+
+type ListRegisteredProvidersResponseObject interface {
+	VisitListRegisteredProvidersResponse(w http.ResponseWriter) error
+}
+
+type ListRegisteredProviders200JSONResponse []RegisteredProvider
+
+func (response ListRegisteredProviders200JSONResponse) VisitListRegisteredProvidersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListRegisteredProviders400JSONResponse Error400
+
+func (response ListRegisteredProviders400JSONResponse) VisitListRegisteredProvidersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListRegisteredProviders500JSONResponse Error500
+
+func (response ListRegisteredProviders500JSONResponse) VisitListRegisteredProvidersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RegisterProviderRequestObject struct {
+	ResourceKind string `json:"resourceKind"`
+	Body         *RegisterProviderJSONRequestBody
+}
+
+type RegisterProviderResponseObject interface {
+	VisitRegisterProviderResponse(w http.ResponseWriter) error
+}
+
+type RegisterProvider200JSONResponse RegistrationResponse
+
+func (response RegisterProvider200JSONResponse) VisitRegisterProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RegisterProvider400JSONResponse Error400
+
+func (response RegisterProvider400JSONResponse) VisitRegisterProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RegisterProvider500JSONResponse Error500
+
+func (response RegisterProvider500JSONResponse) VisitRegisterProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UnregisterProviderRequestObject struct {
+	ResourceKind string `json:"resourceKind"`
+	ProviderId   string `json:"providerId"`
+}
+
+type UnregisterProviderResponseObject interface {
+	VisitUnregisterProviderResponse(w http.ResponseWriter) error
+}
+
+type UnregisterProvider204Response struct {
+}
+
+func (response UnregisterProvider204Response) VisitUnregisterProviderResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type UnregisterProvider404JSONResponse Error404
+
+func (response UnregisterProvider404JSONResponse) VisitUnregisterProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UnregisterProvider500JSONResponse Error500
+
+func (response UnregisterProvider500JSONResponse) VisitUnregisterProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRegisteredProviderRequestObject struct {
+	ResourceKind string `json:"resourceKind"`
+	ProviderId   string `json:"providerId"`
+}
+
+type GetRegisteredProviderResponseObject interface {
+	VisitGetRegisteredProviderResponse(w http.ResponseWriter) error
+}
+
+type GetRegisteredProvider200JSONResponse RegisteredProvider
+
+func (response GetRegisteredProvider200JSONResponse) VisitGetRegisteredProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRegisteredProvider404JSONResponse Error404
+
+func (response GetRegisteredProvider404JSONResponse) VisitGetRegisteredProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRegisteredProvider500JSONResponse Error500
+
+func (response GetRegisteredProvider500JSONResponse) VisitGetRegisteredProviderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Get service catalog
+	// (GET /admin/catalog)
+	GetCatalog(ctx context.Context, request GetCatalogRequestObject) (GetCatalogResponseObject, error)
+	// Get service registry
+	// (GET /admin/registry)
+	GetRegistry(ctx context.Context, request GetRegistryRequestObject) (GetRegistryResponseObject, error)
 	// Health check
 	// (GET /health)
 	ListHealth(ctx context.Context, request ListHealthRequestObject) (ListHealthResponseObject, error)
@@ -674,6 +1207,18 @@ type StrictServerInterface interface {
 	// Update a Service Provider
 	// (PUT /providers/{providerId})
 	ApplyProvider(ctx context.Context, request ApplyProviderRequestObject) (ApplyProviderResponseObject, error)
+	// List registered providers
+	// (GET /resource/{resourceKind}/provider)
+	ListRegisteredProviders(ctx context.Context, request ListRegisteredProvidersRequestObject) (ListRegisteredProvidersResponseObject, error)
+	// Register a service provider
+	// (POST /resource/{resourceKind}/provider)
+	RegisterProvider(ctx context.Context, request RegisterProviderRequestObject) (RegisterProviderResponseObject, error)
+	// Unregister a provider
+	// (DELETE /resource/{resourceKind}/provider/{providerId})
+	UnregisterProvider(ctx context.Context, request UnregisterProviderRequestObject) (UnregisterProviderResponseObject, error)
+	// Get registered provider
+	// (GET /resource/{resourceKind}/provider/{providerId})
+	GetRegisteredProvider(ctx context.Context, request GetRegisteredProviderRequestObject) (GetRegisteredProviderResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -703,6 +1248,54 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// GetCatalog operation middleware
+func (sh *strictHandler) GetCatalog(w http.ResponseWriter, r *http.Request) {
+	var request GetCatalogRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCatalog(ctx, request.(GetCatalogRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCatalog")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCatalogResponseObject); ok {
+		if err := validResponse.VisitGetCatalogResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRegistry operation middleware
+func (sh *strictHandler) GetRegistry(w http.ResponseWriter, r *http.Request) {
+	var request GetRegistryRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRegistry(ctx, request.(GetRegistryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRegistry")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRegistryResponseObject); ok {
+		if err := validResponse.VisitGetRegistryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // ListHealth operation middleware
@@ -864,6 +1457,119 @@ func (sh *strictHandler) ApplyProvider(w http.ResponseWriter, r *http.Request, p
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ApplyProviderResponseObject); ok {
 		if err := validResponse.VisitApplyProviderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListRegisteredProviders operation middleware
+func (sh *strictHandler) ListRegisteredProviders(w http.ResponseWriter, r *http.Request, resourceKind string) {
+	var request ListRegisteredProvidersRequestObject
+
+	request.ResourceKind = resourceKind
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRegisteredProviders(ctx, request.(ListRegisteredProvidersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRegisteredProviders")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListRegisteredProvidersResponseObject); ok {
+		if err := validResponse.VisitListRegisteredProvidersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RegisterProvider operation middleware
+func (sh *strictHandler) RegisterProvider(w http.ResponseWriter, r *http.Request, resourceKind string) {
+	var request RegisterProviderRequestObject
+
+	request.ResourceKind = resourceKind
+
+	var body RegisterProviderJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RegisterProvider(ctx, request.(RegisterProviderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RegisterProvider")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RegisterProviderResponseObject); ok {
+		if err := validResponse.VisitRegisterProviderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UnregisterProvider operation middleware
+func (sh *strictHandler) UnregisterProvider(w http.ResponseWriter, r *http.Request, resourceKind string, providerId string) {
+	var request UnregisterProviderRequestObject
+
+	request.ResourceKind = resourceKind
+	request.ProviderId = providerId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UnregisterProvider(ctx, request.(UnregisterProviderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnregisterProvider")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnregisterProviderResponseObject); ok {
+		if err := validResponse.VisitUnregisterProviderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRegisteredProvider operation middleware
+func (sh *strictHandler) GetRegisteredProvider(w http.ResponseWriter, r *http.Request, resourceKind string, providerId string) {
+	var request GetRegisteredProviderRequestObject
+
+	request.ResourceKind = resourceKind
+	request.ProviderId = providerId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRegisteredProvider(ctx, request.(GetRegisteredProviderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRegisteredProvider")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRegisteredProviderResponseObject); ok {
+		if err := validResponse.VisitGetRegisteredProviderResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

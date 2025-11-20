@@ -1,11 +1,18 @@
-.PHONY: build run test clean fmt vet generate check-generate help 
+.PHONY: build build-example-provider build-all run run-example-provider clean fmt vet generate check-generate help 
 
 # Go binary path
 GOBIN := $(shell go env GOPATH)/bin
 
-# Build the application
+# Build main application
 build:
 	go build -o bin/service-provider-api ./cmd/service-provider-api
+
+# Build example provider
+build-example-provider:
+	go build -o bin/example-provider ./cmd/example-provider
+
+# Build everything
+build-all: build build-example-provider
 
 # Check AEP compliance
 aep:
@@ -14,6 +21,11 @@ aep:
 # Run the application
 run:
 	go run ./cmd/service-provider-api
+
+# Run example provider
+run-example-provider:
+	@echo "🚀 Starting example provider..."
+	@go run cmd/example-provider/main.go
 
 # Run tests
 test:
@@ -93,16 +105,24 @@ check-format: format
 # Help
 help:
 	@echo "Available targets:"
-	@echo "  build           - Build the application"
-	@echo "  run             - Run the application"
-	@echo "  test            - Run tests"
-	@echo "  clean           - Clean build artifacts"
-	@echo "  fmt             - Format code"
-	@echo "  vet             - Vet code"
-	@echo "  tidy            - Tidy dependencies"
-	@echo "  check           - Run all checks (fmt, vet, test)"
-	@echo "  dev             - Build and run"
-	@echo "  generate        - Generate code from OpenAPI specification"
-	@echo "  help            - Show this help"
+	@echo "  build                  - Build main application"
+	@echo "  build-example-provider - Build example provider"
+	@echo "  build-all              - Build everything"
+	@echo "  run                    - Run main application (needs postgres)"
+	@echo "  run-example-provider   - Run example provider"
+	@echo "  test                   - Run tests"
+	@echo "  clean                  - Clean build artifacts"
+	@echo "  fmt                    - Format code"
+	@echo "  vet                    - Vet code"
+	@echo "  tidy                   - Tidy dependencies"
+	@echo "  check                  - Run all checks (fmt, vet, test)"
+	@echo "  dev                    - Build and run"
+	@echo "  generate               - Generate code from OpenAPI specification"
+	@echo "  help                   - Show this help"
+	@echo ""
+	@echo "Quick start:"
+	@echo "  make deploy-db             # Start PostgreSQL (first time only)"
+	@echo "  make run                   # Start API server"
+	@echo "  make run-example-provider  # Start example provider (in another terminal)"
 
 include deploy/deploy.mk
