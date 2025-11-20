@@ -8,12 +8,14 @@ type Store interface {
 	Close() error
 	Application() ProviderApplication
 	Provider() Provider
+	Catalog() Catalog
 }
 
 type DataStore struct {
 	db          *gorm.DB
 	application ProviderApplication
 	provider    Provider
+	catalog     Catalog
 }
 
 func NewStore(db *gorm.DB) Store {
@@ -21,6 +23,7 @@ func NewStore(db *gorm.DB) Store {
 		db:          db,
 		application: NewProviderApplication(db),
 		provider:    NewProvider(db),
+		catalog:     NewCatalog(db),
 	}
 }
 
@@ -38,4 +41,8 @@ func (s *DataStore) Application() ProviderApplication {
 
 func (s *DataStore) Provider() Provider {
 	return s.provider
+}
+
+func (s *DataStore) Catalog() Catalog {
+	return s.catalog
 }
