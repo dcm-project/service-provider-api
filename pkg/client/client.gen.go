@@ -91,6 +91,12 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// GetCatalog request
+	GetCatalog(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRegistry request
+	GetRegistry(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListHealth request
 	ListHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -112,6 +118,44 @@ type ClientInterface interface {
 	ApplyProviderWithBody(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	ApplyProvider(ctx context.Context, providerId openapi_types.UUID, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListRegisteredProviders request
+	ListRegisteredProviders(ctx context.Context, resourceKind string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RegisterProviderWithBody request with any body
+	RegisterProviderWithBody(ctx context.Context, resourceKind string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RegisterProvider(ctx context.Context, resourceKind string, body RegisterProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UnregisterProvider request
+	UnregisterProvider(ctx context.Context, resourceKind string, providerId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRegisteredProvider request
+	GetRegisteredProvider(ctx context.Context, resourceKind string, providerId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) GetCatalog(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCatalogRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetRegistry(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRegistryRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) ListHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -208,6 +252,120 @@ func (c *Client) ApplyProvider(ctx context.Context, providerId openapi_types.UUI
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+func (c *Client) ListRegisteredProviders(ctx context.Context, resourceKind string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRegisteredProvidersRequest(c.Server, resourceKind)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterProviderWithBody(ctx context.Context, resourceKind string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterProviderRequestWithBody(c.Server, resourceKind, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterProvider(ctx context.Context, resourceKind string, body RegisterProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterProviderRequest(c.Server, resourceKind, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UnregisterProvider(ctx context.Context, resourceKind string, providerId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnregisterProviderRequest(c.Server, resourceKind, providerId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetRegisteredProvider(ctx context.Context, resourceKind string, providerId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRegisteredProviderRequest(c.Server, resourceKind, providerId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// NewGetCatalogRequest generates requests for GetCatalog
+func NewGetCatalogRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/catalog")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetRegistryRequest generates requests for GetRegistry
+func NewGetRegistryRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/registry")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewListHealthRequest generates requests for ListHealth
@@ -441,6 +599,169 @@ func NewApplyProviderRequestWithBody(server string, providerId openapi_types.UUI
 	return req, nil
 }
 
+// NewListRegisteredProvidersRequest generates requests for ListRegisteredProviders
+func NewListRegisteredProvidersRequest(server string, resourceKind string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "resourceKind", runtime.ParamLocationPath, resourceKind)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/resource/%s/provider", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRegisterProviderRequest calls the generic RegisterProvider builder with application/json body
+func NewRegisterProviderRequest(server string, resourceKind string, body RegisterProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRegisterProviderRequestWithBody(server, resourceKind, "application/json", bodyReader)
+}
+
+// NewRegisterProviderRequestWithBody generates requests for RegisterProvider with any type of body
+func NewRegisterProviderRequestWithBody(server string, resourceKind string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "resourceKind", runtime.ParamLocationPath, resourceKind)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/resource/%s/provider", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUnregisterProviderRequest generates requests for UnregisterProvider
+func NewUnregisterProviderRequest(server string, resourceKind string, providerId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "resourceKind", runtime.ParamLocationPath, resourceKind)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "providerId", runtime.ParamLocationPath, providerId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/resource/%s/provider/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetRegisteredProviderRequest generates requests for GetRegisteredProvider
+func NewGetRegisteredProviderRequest(server string, resourceKind string, providerId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "resourceKind", runtime.ParamLocationPath, resourceKind)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "providerId", runtime.ParamLocationPath, providerId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/resource/%s/provider/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -484,6 +805,12 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// GetCatalogWithResponse request
+	GetCatalogWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCatalogResponse, error)
+
+	// GetRegistryWithResponse request
+	GetRegistryWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetRegistryResponse, error)
+
 	// ListHealthWithResponse request
 	ListHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListHealthResponse, error)
 
@@ -505,6 +832,66 @@ type ClientWithResponsesInterface interface {
 	ApplyProviderWithBodyWithResponse(ctx context.Context, providerId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error)
 
 	ApplyProviderWithResponse(ctx context.Context, providerId openapi_types.UUID, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error)
+
+	// ListRegisteredProvidersWithResponse request
+	ListRegisteredProvidersWithResponse(ctx context.Context, resourceKind string, reqEditors ...RequestEditorFn) (*ListRegisteredProvidersResponse, error)
+
+	// RegisterProviderWithBodyWithResponse request with any body
+	RegisterProviderWithBodyWithResponse(ctx context.Context, resourceKind string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterProviderResponse, error)
+
+	RegisterProviderWithResponse(ctx context.Context, resourceKind string, body RegisterProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterProviderResponse, error)
+
+	// UnregisterProviderWithResponse request
+	UnregisterProviderWithResponse(ctx context.Context, resourceKind string, providerId string, reqEditors ...RequestEditorFn) (*UnregisterProviderResponse, error)
+
+	// GetRegisteredProviderWithResponse request
+	GetRegisteredProviderWithResponse(ctx context.Context, resourceKind string, providerId string, reqEditors ...RequestEditorFn) (*GetRegisteredProviderResponse, error)
+}
+
+type GetCatalogResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CatalogView
+	JSON500      *Error500
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCatalogResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCatalogResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetRegistryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RegistryView
+	JSON500      *Error500
+}
+
+// Status returns HTTPResponse.Status
+func (r GetRegistryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetRegistryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type ListHealthResponse struct {
@@ -651,6 +1038,119 @@ func (r ApplyProviderResponse) StatusCode() int {
 	return 0
 }
 
+type ListRegisteredProvidersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]RegisteredProvider
+	JSON400      *Error400
+	JSON500      *Error500
+}
+
+// Status returns HTTPResponse.Status
+func (r ListRegisteredProvidersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListRegisteredProvidersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RegisterProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RegistrationResponse
+	JSON400      *Error400
+	JSON500      *Error500
+}
+
+// Status returns HTTPResponse.Status
+func (r RegisterProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RegisterProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UnregisterProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON404      *Error404
+	JSON500      *Error500
+}
+
+// Status returns HTTPResponse.Status
+func (r UnregisterProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnregisterProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetRegisteredProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RegisteredProvider
+	JSON404      *Error404
+	JSON500      *Error500
+}
+
+// Status returns HTTPResponse.Status
+func (r GetRegisteredProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetRegisteredProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// GetCatalogWithResponse request returning *GetCatalogResponse
+func (c *ClientWithResponses) GetCatalogWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCatalogResponse, error) {
+	rsp, err := c.GetCatalog(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCatalogResponse(rsp)
+}
+
+// GetRegistryWithResponse request returning *GetRegistryResponse
+func (c *ClientWithResponses) GetRegistryWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetRegistryResponse, error) {
+	rsp, err := c.GetRegistry(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetRegistryResponse(rsp)
+}
+
 // ListHealthWithResponse request returning *ListHealthResponse
 func (c *ClientWithResponses) ListHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListHealthResponse, error) {
 	rsp, err := c.ListHealth(ctx, reqEditors...)
@@ -719,6 +1219,116 @@ func (c *ClientWithResponses) ApplyProviderWithResponse(ctx context.Context, pro
 		return nil, err
 	}
 	return ParseApplyProviderResponse(rsp)
+}
+
+// ListRegisteredProvidersWithResponse request returning *ListRegisteredProvidersResponse
+func (c *ClientWithResponses) ListRegisteredProvidersWithResponse(ctx context.Context, resourceKind string, reqEditors ...RequestEditorFn) (*ListRegisteredProvidersResponse, error) {
+	rsp, err := c.ListRegisteredProviders(ctx, resourceKind, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListRegisteredProvidersResponse(rsp)
+}
+
+// RegisterProviderWithBodyWithResponse request with arbitrary body returning *RegisterProviderResponse
+func (c *ClientWithResponses) RegisterProviderWithBodyWithResponse(ctx context.Context, resourceKind string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterProviderResponse, error) {
+	rsp, err := c.RegisterProviderWithBody(ctx, resourceKind, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterProviderResponse(rsp)
+}
+
+func (c *ClientWithResponses) RegisterProviderWithResponse(ctx context.Context, resourceKind string, body RegisterProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterProviderResponse, error) {
+	rsp, err := c.RegisterProvider(ctx, resourceKind, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterProviderResponse(rsp)
+}
+
+// UnregisterProviderWithResponse request returning *UnregisterProviderResponse
+func (c *ClientWithResponses) UnregisterProviderWithResponse(ctx context.Context, resourceKind string, providerId string, reqEditors ...RequestEditorFn) (*UnregisterProviderResponse, error) {
+	rsp, err := c.UnregisterProvider(ctx, resourceKind, providerId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnregisterProviderResponse(rsp)
+}
+
+// GetRegisteredProviderWithResponse request returning *GetRegisteredProviderResponse
+func (c *ClientWithResponses) GetRegisteredProviderWithResponse(ctx context.Context, resourceKind string, providerId string, reqEditors ...RequestEditorFn) (*GetRegisteredProviderResponse, error) {
+	rsp, err := c.GetRegisteredProvider(ctx, resourceKind, providerId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetRegisteredProviderResponse(rsp)
+}
+
+// ParseGetCatalogResponse parses an HTTP response from a GetCatalogWithResponse call
+func ParseGetCatalogResponse(rsp *http.Response) (*GetCatalogResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCatalogResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CatalogView
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error500
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetRegistryResponse parses an HTTP response from a GetRegistryWithResponse call
+func ParseGetRegistryResponse(rsp *http.Response) (*GetRegistryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetRegistryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RegistryView
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error500
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseListHealthResponse parses an HTTP response from a ListHealthWithResponse call
@@ -938,6 +1548,159 @@ func ParseApplyProviderResponse(rsp *http.Response) (*ApplyProviderResponse, err
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error404
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error500
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListRegisteredProvidersResponse parses an HTTP response from a ListRegisteredProvidersWithResponse call
+func ParseListRegisteredProvidersResponse(rsp *http.Response) (*ListRegisteredProvidersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListRegisteredProvidersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []RegisteredProvider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error400
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error500
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRegisterProviderResponse parses an HTTP response from a RegisterProviderWithResponse call
+func ParseRegisterProviderResponse(rsp *http.Response) (*RegisterProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RegisterProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RegistrationResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error400
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error500
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUnregisterProviderResponse parses an HTTP response from a UnregisterProviderWithResponse call
+func ParseUnregisterProviderResponse(rsp *http.Response) (*UnregisterProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnregisterProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error404
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error500
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetRegisteredProviderResponse parses an HTTP response from a GetRegisteredProviderWithResponse call
+func ParseGetRegisteredProviderResponse(rsp *http.Response) (*GetRegisteredProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetRegisteredProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RegisteredProvider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error404

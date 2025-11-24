@@ -81,6 +81,184 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error500'
 
+  /resource/{resourceKind}/provider:
+    post:
+      summary: Register a service provider
+      operationId: RegisterProvider
+      description: Register a service provider for a specific resource type
+      parameters:
+        - name: resourceKind
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Resource type (e.g., 'file', 'container', 'vm')
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRequest'
+      responses:
+        '200':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error400'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+    get:
+      summary: List registered providers
+      operationId: ListRegisteredProviders
+      description: List all registered providers for a specific resource type
+      parameters:
+        - name: resourceKind
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Resource type (e.g., 'file', 'container', 'vm')
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RegisteredProvider'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error400'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+
+  /resource/{resourceKind}/provider/{providerId}:
+    get:
+      summary: Get registered provider
+      operationId: GetRegisteredProvider
+      description: Get a specific registered provider by service ID and resource type
+      parameters:
+        - name: resourceKind
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Resource type
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Service ID of the provider
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisteredProvider'
+        '404':
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+    delete:
+      summary: Unregister a provider
+      operationId: UnregisterProvider
+      description: Remove provider registration for a specific resource type
+      parameters:
+        - name: resourceKind
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Resource type
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Service ID of the provider
+      responses:
+        '204':
+          description: Successfully unregistered
+        '404':
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+
+  /admin/registry:
+    get:
+      summary: Get service registry
+      operationId: GetRegistry
+      description: Admin endpoint to view all registered providers
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistryView'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+
+  /admin/catalog:
+    get:
+      summary: Get service catalog
+      operationId: GetCatalog
+      description: Admin endpoint to view service catalog with available providers
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogView'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+
   /providers/{providerId}:
     get:
       summary: Get a provider
@@ -295,3 +473,169 @@ components:
           type: integer
           description: Error code
           example: 500
+
+    RegistrationRequest:
+      type: object
+      required:
+        - service_id
+        - endpoint
+        - metadata
+        - operations
+      properties:
+        service_id:
+          type: string
+          description: Unique service identifier (UUID)
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        endpoint:
+          type: string
+          description: Provider endpoint URL
+          example: "http://provider:8081/api/file"
+        metadata:
+          $ref: '#/components/schemas/ProviderMetadata'
+        operations:
+          type: array
+          items:
+            type: string
+          description: Supported operations
+          example: ["CREATE", "READ", "DELETE"]
+
+    ProviderMetadata:
+      type: object
+      required:
+        - zone
+        - region
+      properties:
+        zone:
+          type: string
+          description: Deployment zone
+          example: "datacenter-east"
+        region:
+          type: string
+          description: Deployment region
+          example: "us-east"
+        resource_constraints:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource constraints
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+          description: Custom labels
+
+    RegistrationResponse:
+      type: object
+      properties:
+        service_id:
+          type: string
+          description: Service identifier
+        resource_kind:
+          type: string
+          description: Resource type
+        status:
+          type: string
+          description: Registration status
+          example: "active"
+        registered_at:
+          type: string
+          format: date-time
+          description: Registration timestamp
+        message:
+          type: string
+          description: Status message
+
+    RegisteredProvider:
+      type: object
+      properties:
+        service_id:
+          type: string
+          description: Service identifier
+        resource_kind:
+          type: string
+          description: Resource type
+        endpoint:
+          type: string
+          description: Provider endpoint
+        metadata:
+          $ref: '#/components/schemas/ProviderMetadata'
+        operations:
+          type: array
+          items:
+            type: string
+          description: Supported operations
+        catalog_item:
+          type: string
+          description: Associated catalog item
+        status:
+          type: string
+          description: Provider status
+        registered_at:
+          type: string
+          format: date-time
+          description: Registration timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    RegistryView:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of providers
+        providers:
+          type: array
+          items:
+            type: object
+            properties:
+              service_id:
+                type: string
+              metadata:
+                $ref: '#/components/schemas/ProviderMetadata'
+              status:
+                type: string
+              registrations:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    resource_kind:
+                      type: string
+                    endpoint:
+                      type: string
+                    operations:
+                      type: array
+                      items:
+                        type: string
+                    catalog_item:
+                      type: string
+                    registered_at:
+                      type: string
+                      format: date-time
+              registered_at:
+                type: string
+                format: date-time
+
+    CatalogView:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of catalog items
+        catalog_items:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              display_name:
+                type: string
+              resource_kind:
+                type: string
+              available_providers:
+                type: array
+                items:
+                  type: string
