@@ -52,6 +52,9 @@ type ServiceTypeInstance struct {
 	// schemas (VMSpec, ContainerSpec, DatabaseSpec, or ClusterSpec).
 	Spec map[string]interface{} `json:"spec"`
 
+	// Status Status of the instance
+	Status *string `json:"status,omitempty"`
+
 	// UpdateTime Timestamp when the instance was last updated
 	UpdateTime *time.Time `json:"update_time,omitempty"`
 }
@@ -69,8 +72,8 @@ type InstanceIdPath = string
 
 // ListInstancesParams defines parameters for ListInstances.
 type ListInstancesParams struct {
-	// Type Filter service type
-	Type *string `form:"type,omitempty" json:"type,omitempty"`
+	// Provider Filter service provider
+	Provider *string `form:"provider,omitempty" json:"provider,omitempty"`
 
 	// MaxPageSize Maximum number of results per page
 	MaxPageSize *int `form:"max_page_size,omitempty" json:"max_page_size,omitempty"`
