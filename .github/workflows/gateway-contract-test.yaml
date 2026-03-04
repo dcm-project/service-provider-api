@@ -1,0 +1,16 @@
+name: Gateway Contract Test
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  contract-test:
+    uses: dcm-project/shared-workflows/.github/workflows/gateway-contract-test.yaml@main
+    with:
+      krakend-repo: dcm-project/api-gateway
+      krakend-config: config/krakend.json
+      override-spec: service-provider-manager=api/v1alpha1/openapi.yaml
+      service: service-provider-manager
+      watch-paths: |
+        api/**/openapi.yaml
