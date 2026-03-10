@@ -72,7 +72,7 @@ var _ = Describe("Provider Store", func() {
 		})
 
 		It("returns ErrProviderNotFound for missing ID", func() {
-			_, err := providerStore.Get(ctx, uuid.New())
+			_, err := providerStore.Get(ctx, uuid.New().String())
 
 			Expect(err).To(Equal(store.ErrProviderNotFound))
 		})
@@ -216,7 +216,7 @@ var _ = Describe("Provider Store", func() {
 		})
 
 		It("returns ErrProviderNotFound for missing ID", func() {
-			err := providerStore.Delete(ctx, uuid.New())
+			err := providerStore.Delete(ctx, uuid.New().String())
 
 			Expect(err).To(Equal(store.ErrProviderNotFound))
 		})
@@ -397,7 +397,7 @@ var _ = Describe("Provider Store", func() {
 
 		It("returns ErrProviderNotFound for missing ID", func() {
 			nextCheck := time.Now().Add(1 * time.Hour)
-			err := providerStore.UpdateHealthStatus(ctx, uuid.New(), model.HealthStatusReady, 0, nextCheck)
+			err := providerStore.UpdateHealthStatus(ctx, uuid.New().String(), model.HealthStatusReady, 0, nextCheck)
 
 			Expect(err).To(Equal(store.ErrProviderNotFound))
 		})
@@ -406,7 +406,7 @@ var _ = Describe("Provider Store", func() {
 
 func newProvider(name string) model.Provider {
 	return model.Provider{
-		ID:            uuid.New(),
+		ID:            uuid.New().String(),
 		Name:          name,
 		ServiceType:   "vm",
 		SchemaVersion: "v1alpha1",

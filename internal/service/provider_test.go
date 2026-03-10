@@ -9,7 +9,6 @@ import (
 	"github.com/dcm-project/service-provider-manager/internal/store"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
 	"github.com/google/uuid"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/driver/sqlite"
@@ -80,7 +79,7 @@ var _ = Describe("ProviderService", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp2.Status).NotTo(BeNil())
 			Expect(*resp2.Status).To(Equal(server.Updated))
-			Expect(resp2.Id.String()).To(Equal(resp1.Id.String())) // Same ID returned
+			Expect(*resp2.Id).To(Equal(*resp1.Id)) // Same ID returned
 			Expect(resp2.Endpoint).To(Equal("https://updated.example.com"))
 		})
 
@@ -89,7 +88,7 @@ var _ = Describe("ProviderService", func() {
 			providerService.RegisterOrUpdateProvider(ctx, req, nil)
 
 			// Try with different ID
-			newID := openapi_types.UUID(uuid.New())
+			newID := uuid.New().String()
 			req.Id = &newID
 			_, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 
@@ -120,7 +119,7 @@ var _ = Describe("ProviderService", func() {
 			req := newProvider("get-test")
 			resp, _ := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 
-			provider, err := providerService.GetProvider(ctx, resp.Id.String())
+			provider, err := providerService.GetProvider(ctx, *resp.Id)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(provider.Name).To(Equal("get-test"))
@@ -230,7 +229,7 @@ var _ = Describe("ProviderService", func() {
 				SchemaVersion: "v1alpha1",
 			}
 
-			updated, err := providerService.UpdateProvider(ctx, resp.Id.String(), update)
+			updated, err := providerService.UpdateProvider(ctx, *resp.Id, update)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(updated.Endpoint).To(Equal("https://updated.example.com"))
@@ -249,7 +248,7 @@ var _ = Describe("ProviderService", func() {
 				SchemaVersion: "v1alpha1",
 			}
 
-			_, err := providerService.UpdateProvider(ctx, resp2.Id.String(), update)
+			_, err := providerService.UpdateProvider(ctx, *resp2.Id, update)
 
 			Expect(err).To(HaveOccurred())
 			svcErr, ok := err.(*service.ServiceError)
@@ -279,7 +278,7 @@ var _ = Describe("ProviderService", func() {
 			req := newProvider("to-delete")
 			resp, _ := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 
-			err := providerService.DeleteProvider(ctx, resp.Id.String())
+			err := providerService.DeleteProvider(ctx, *resp.Id)
 
 			Expect(err).NotTo(HaveOccurred())
 		})

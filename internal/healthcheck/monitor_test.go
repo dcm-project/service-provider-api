@@ -33,7 +33,7 @@ type mockProviderStore struct {
 }
 
 type healthStatusUpdate struct {
-	ID                  uuid.UUID
+	ID                  string
 	Status              model.HealthStatus
 	ConsecutiveFailures int
 	NextCheck           time.Time
@@ -49,7 +49,7 @@ func (m *mockProviderStore) ListProvidersForHealthCheck(ctx context.Context, now
 	return result, nil
 }
 
-func (m *mockProviderStore) UpdateHealthStatus(ctx context.Context, id uuid.UUID, status model.HealthStatus, consecutiveFailures int, nextCheck time.Time) error {
+func (m *mockProviderStore) UpdateHealthStatus(ctx context.Context, id string, status model.HealthStatus, consecutiveFailures int, nextCheck time.Time) error {
 	m.healthStatusUpdates = append(m.healthStatusUpdates, healthStatusUpdate{
 		ID:                  id,
 		Status:              status,
@@ -67,7 +67,7 @@ func (m *mockProviderStore) Count(ctx context.Context, filter *store.ProviderFil
 	return int64(len(m.providers)), nil
 }
 
-func (m *mockProviderStore) ExistsByID(ctx context.Context, id uuid.UUID) (bool, error) {
+func (m *mockProviderStore) ExistsByID(ctx context.Context, id string) (bool, error) {
 	for _, p := range m.providers {
 		if p.ID == id {
 			return true, nil
@@ -80,7 +80,7 @@ func (m *mockProviderStore) Create(ctx context.Context, provider model.Provider)
 	return &provider, nil
 }
 
-func (m *mockProviderStore) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *mockProviderStore) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
@@ -88,7 +88,7 @@ func (m *mockProviderStore) Update(ctx context.Context, provider model.Provider)
 	return &provider, nil
 }
 
-func (m *mockProviderStore) Get(ctx context.Context, id uuid.UUID) (*model.Provider, error) {
+func (m *mockProviderStore) Get(ctx context.Context, id string) (*model.Provider, error) {
 	for _, p := range m.providers {
 		if p.ID == id {
 			return &p, nil
@@ -177,7 +177,7 @@ var _ = Describe("Monitor", func() {
 				}))
 				defer server.Close()
 
-				providerID := uuid.New()
+				providerID := uuid.New().String()
 				mockStore := &mockProviderStore{
 					providers: model.ProviderList{
 						{
@@ -206,7 +206,7 @@ var _ = Describe("Monitor", func() {
 				}))
 				defer server.Close()
 
-				providerID := uuid.New()
+				providerID := uuid.New().String()
 				mockStore := &mockProviderStore{
 					providers: model.ProviderList{
 						{
@@ -234,7 +234,7 @@ var _ = Describe("Monitor", func() {
 				}))
 				defer server.Close()
 
-				providerID := uuid.New()
+				providerID := uuid.New().String()
 				mockStore := &mockProviderStore{
 					providers: model.ProviderList{
 						{
@@ -264,7 +264,7 @@ var _ = Describe("Monitor", func() {
 				}))
 				defer server.Close()
 
-				providerID := uuid.New()
+				providerID := uuid.New().String()
 				mockStore := &mockProviderStore{
 					providers: model.ProviderList{
 						{

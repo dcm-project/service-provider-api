@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -33,15 +32,15 @@ type Provider interface {
 	List(ctx context.Context, filter *ProviderFilter, pagination *Pagination) (model.ProviderList, error)
 	Count(ctx context.Context, filter *ProviderFilter) (int64, error)
 	Create(ctx context.Context, provider model.Provider) (*model.Provider, error)
-	Delete(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, id string) error
 	Update(ctx context.Context, provider model.Provider) (*model.Provider, error)
-	Get(ctx context.Context, id uuid.UUID) (*model.Provider, error)
+	Get(ctx context.Context, id string) (*model.Provider, error)
 	GetByName(ctx context.Context, name string) (*model.Provider, error)
-	ExistsByID(ctx context.Context, id uuid.UUID) (bool, error)
+	ExistsByID(ctx context.Context, id string) (bool, error)
 
 	// Health check methods
 	ListProvidersForHealthCheck(ctx context.Context, now time.Time) (model.ProviderList, error)
-	UpdateHealthStatus(ctx context.Context, id uuid.UUID, status model.HealthStatus, consecutiveFailures int, nextCheck time.Time) error
+	UpdateHealthStatus(ctx context.Context, id string, status model.HealthStatus, consecutiveFailures int, nextCheck time.Time) error
 }
 
 type ProviderStore struct {
@@ -106,8 +105,8 @@ func (s *ProviderStore) Create(ctx context.Context, provider model.Provider) (*m
 	return &provider, nil
 }
 
-func (s *ProviderStore) Delete(ctx context.Context, id uuid.UUID) error {
-	result := s.db.WithContext(ctx).Delete(&model.Provider{}, id)
+func (s *ProviderStore) Delete(ctx context.Context, id string) error {
+	result := s.db.WithContext(ctx).Where("id = ?", id).Delete(&model.Provider{})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -128,9 +127,9 @@ func (s *ProviderStore) Update(ctx context.Context, provider model.Provider) (*m
 	return &provider, nil
 }
 
-func (s *ProviderStore) Get(ctx context.Context, id uuid.UUID) (*model.Provider, error) {
+func (s *ProviderStore) Get(ctx context.Context, id string) (*model.Provider, error) {
 	var provider model.Provider
-	if err := s.db.WithContext(ctx).First(&provider, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("id = ?", id).First(&provider).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrProviderNotFound
 		}
@@ -150,7 +149,7 @@ func (s *ProviderStore) GetByName(ctx context.Context, name string) (*model.Prov
 	return &provider, nil
 }
 
-func (s *ProviderStore) ExistsByID(ctx context.Context, id uuid.UUID) (bool, error) {
+func (s *ProviderStore) ExistsByID(ctx context.Context, id string) (bool, error) {
 	var provider model.Provider
 	err := s.db.WithContext(ctx).Select("id").Where(&model.Provider{ID: id}).Take(&provider).Error
 	if err != nil {
@@ -174,7 +173,7 @@ func (s *ProviderStore) ListProvidersForHealthCheck(ctx context.Context, now tim
 }
 
 // UpdateHealthStatus updates the health status and tracking fields for a provider.
-func (s *ProviderStore) UpdateHealthStatus(ctx context.Context, id uuid.UUID, status model.HealthStatus, consecutiveFailures int, nextCheck time.Time) error {
+func (s *ProviderStore) UpdateHealthStatus(ctx context.Context, id string, status model.HealthStatus, consecutiveFailures int, nextCheck time.Time) error {
 	result := s.db.WithContext(ctx).Model(&model.Provider{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"health_status":        status,
 		"consecutive_failures": consecutiveFailures,

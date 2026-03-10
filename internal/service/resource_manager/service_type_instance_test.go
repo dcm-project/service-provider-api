@@ -59,7 +59,7 @@ var _ = Describe("InstanceService", func() {
 
 		// Create a provider in the database
 		provider := model.Provider{
-			ID:           uuid.New(),
+			ID:           uuid.New().String(),
 			Name:         "test-provider",
 			ServiceType:  "vm",
 			Endpoint:     mockProvider.URL,
@@ -145,7 +145,7 @@ var _ = Describe("InstanceService", func() {
 		It("returns provider error when provider exists but is not ready", func() {
 			// Create a provider with HealthStatus = NotReady
 			notReadyProvider := model.Provider{
-				ID:           uuid.New(),
+				ID:           uuid.New().String(),
 				Name:         "not-ready-provider",
 				ServiceType:  "vm",
 				Endpoint:     mockProvider.URL,
@@ -168,26 +168,10 @@ var _ = Describe("InstanceService", func() {
 			Expect(svcErr.Message).To(ContainSubstring("not in ready state"))
 		})
 
-		It("returns validation error for invalid ID format", func() {
-			invalidID := "not-a-uuid"
-			req := &resource_manager.ServiceTypeInstance{
-				ProviderName: "test-provider",
-				Spec:         map[string]interface{}{"cpu": 1},
-			}
-
-			_, err := instanceService.CreateInstance(ctx, req, &invalidID)
-
-			Expect(err).To(HaveOccurred())
-			var svcErr *service.ServiceError
-			Expect(err).To(BeAssignableToTypeOf(svcErr))
-			errors.As(err, &svcErr)
-			Expect(svcErr.Code).To(Equal(service.ErrCodeValidation))
-		})
-
 		It("returns provider error when provider endpoint fails", func() {
 			// Create a provider with a bad endpoint
 			badProvider := model.Provider{
-				ID:          uuid.New(),
+				ID:          uuid.New().String(),
 				Name:        "bad-provider",
 				ServiceType: "vm",
 				Endpoint:    "http://localhost:1", // Invalid port
@@ -217,7 +201,7 @@ var _ = Describe("InstanceService", func() {
 			defer mockProvider4xx.Close()
 
 			provider4xx := model.Provider{
-				ID:           uuid.New(),
+				ID:           uuid.New().String(),
 				Name:         "provider-4xx",
 				ServiceType:  "vm",
 				Endpoint:     mockProvider4xx.URL,
@@ -249,7 +233,7 @@ var _ = Describe("InstanceService", func() {
 			defer mockProvider5xx.Close()
 
 			provider5xx := model.Provider{
-				ID:           uuid.New(),
+				ID:           uuid.New().String(),
 				Name:         "provider-5xx",
 				ServiceType:  "vm",
 				Endpoint:     mockProvider5xx.URL,
@@ -294,7 +278,7 @@ var _ = Describe("InstanceService", func() {
 			defer mockProviderWithID.Close()
 
 			providerWithID := model.Provider{
-				ID:           uuid.New(),
+				ID:           uuid.New().String(),
 				Name:         "provider-db-fail",
 				ServiceType:  "vm",
 				Endpoint:     mockProviderWithID.URL,
@@ -344,16 +328,6 @@ var _ = Describe("InstanceService", func() {
 			Expect(err).To(BeAssignableToTypeOf(svcErr))
 			errors.As(err, &svcErr)
 			Expect(svcErr.Code).To(Equal(service.ErrCodeNotFound))
-		})
-
-		It("returns validation error for invalid ID format", func() {
-			_, err := instanceService.GetInstance(ctx, "invalid-uuid")
-
-			Expect(err).To(HaveOccurred())
-			var svcErr *service.ServiceError
-			Expect(err).To(BeAssignableToTypeOf(svcErr))
-			errors.As(err, &svcErr)
-			Expect(svcErr.Code).To(Equal(service.ErrCodeValidation))
 		})
 	})
 
@@ -428,7 +402,7 @@ var _ = Describe("InstanceService", func() {
 		It("filters instances by provider name", func() {
 			// Create a second provider
 			secondProvider := model.Provider{
-				ID:           uuid.New(),
+				ID:           uuid.New().String(),
 				Name:         "second-provider",
 				ServiceType:  "vm",
 				Endpoint:     mockProvider.URL,
@@ -507,16 +481,6 @@ var _ = Describe("InstanceService", func() {
 			Expect(err).To(BeAssignableToTypeOf(svcErr))
 			errors.As(err, &svcErr)
 			Expect(svcErr.Code).To(Equal(service.ErrCodeNotFound))
-		})
-
-		It("returns validation error for invalid ID format", func() {
-			err := instanceService.DeleteInstance(ctx, "invalid-uuid")
-
-			Expect(err).To(HaveOccurred())
-			var svcErr *service.ServiceError
-			Expect(err).To(BeAssignableToTypeOf(svcErr))
-			errors.As(err, &svcErr)
-			Expect(svcErr.Code).To(Equal(service.ErrCodeValidation))
 		})
 
 		It("continues deletion even if provider is missing", func() {

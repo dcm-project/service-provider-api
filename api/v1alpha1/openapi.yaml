@@ -100,7 +100,9 @@ paths:
           description: Optional provider ID for idempotent registration
           schema:
             type: string
-            format: uuid
+            pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+            minLength: 1
+            maxLength: 63
       requestBody:
         required: true
         content:
@@ -159,7 +161,9 @@ paths:
           description: Unique identifier of the provider
           schema:
             type: string
-            format: uuid
+            pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+            minLength: 1
+            maxLength: 63
       responses:
         '200':
           description: Successful operation
@@ -201,7 +205,9 @@ paths:
           description: Unique identifier of the provider to update
           schema:
             type: string
-            format: uuid
+            pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+            minLength: 1
+            maxLength: 63
       requestBody:
         required: true
         content:
@@ -253,7 +259,9 @@ paths:
           description: Unique identifier of the provider to delete
           schema:
             type: string
-            format: uuid
+            pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+            minLength: 1
+            maxLength: 63
       responses:
         '204':
           description: Provider deleted successfully
@@ -336,7 +344,9 @@ components:
       properties:
         id:
           type: string
-          format: uuid
+          pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+          minLength: 1
+          maxLength: 63
           readOnly: true
           description: Unique identifier for the Service Provider
           example: "123e4567-e89b-12d3-a456-426614174000"

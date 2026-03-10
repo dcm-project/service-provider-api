@@ -78,7 +78,7 @@ func (h *Handler) CreateProvider(ctx context.Context, request server.CreateProvi
 }
 
 func (h *Handler) GetProvider(ctx context.Context, request server.GetProviderRequestObject) (server.GetProviderResponseObject, error) {
-	provider, err := h.providerService.GetProvider(ctx, request.ProviderId.String())
+	provider, err := h.providerService.GetProvider(ctx, request.ProviderId)
 	if err != nil {
 		if svcErr, ok := err.(*service.ServiceError); ok && svcErr.Code == service.ErrCodeNotFound {
 			return server.GetProvider404ApplicationProblemPlusJSONResponse(newError("not-found", "Provider not found", svcErr.Message, 404)), nil
@@ -90,7 +90,7 @@ func (h *Handler) GetProvider(ctx context.Context, request server.GetProviderReq
 }
 
 func (h *Handler) ApplyProvider(ctx context.Context, request server.ApplyProviderRequestObject) (server.ApplyProviderResponseObject, error) {
-	provider, err := h.providerService.UpdateProvider(ctx, request.ProviderId.String(), request.Body)
+	provider, err := h.providerService.UpdateProvider(ctx, request.ProviderId, request.Body)
 	if err != nil {
 		if svcErr, ok := err.(*service.ServiceError); ok {
 			switch svcErr.Code {
@@ -107,7 +107,7 @@ func (h *Handler) ApplyProvider(ctx context.Context, request server.ApplyProvide
 }
 
 func (h *Handler) DeleteProvider(ctx context.Context, request server.DeleteProviderRequestObject) (server.DeleteProviderResponseObject, error) {
-	err := h.providerService.DeleteProvider(ctx, request.ProviderId.String())
+	err := h.providerService.DeleteProvider(ctx, request.ProviderId)
 	if err != nil {
 		if svcErr, ok := err.(*service.ServiceError); ok && svcErr.Code == service.ErrCodeNotFound {
 			return server.DeleteProvider404ApplicationProblemPlusJSONResponse(newError("not-found", "Provider not found", svcErr.Message, 404)), nil

@@ -15,7 +15,7 @@ import (
 
 func newServiceTypeInstance(providerName, instanceName string, spec map[string]interface{}) model.ServiceTypeInstance {
 	return model.ServiceTypeInstance{
-		ID:           uuid.New(),
+		ID:           uuid.New().String(),
 		ProviderName: providerName,
 		Status:       "PROVISIONING",
 		InstanceName: instanceName,
@@ -85,7 +85,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 		})
 
 		It("returns ErrInstanceNotFound for missing ID", func() {
-			_, err := s.Get(ctx, uuid.New())
+			_, err := s.Get(ctx, uuid.New().String())
 			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
 		})
 	})
@@ -153,7 +153,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 		})
 
 		It("returns ErrInstanceNotFound for missing ID", func() {
-			err := s.Delete(ctx, uuid.New())
+			err := s.Delete(ctx, uuid.New().String())
 			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
 		})
 	})
@@ -169,7 +169,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 		})
 
 		It("returns false when instance is missing", func() {
-			exists, err := s.ExistsByID(ctx, uuid.New())
+			exists, err := s.ExistsByID(ctx, uuid.New().String())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(exists).To(BeFalse())
 		})

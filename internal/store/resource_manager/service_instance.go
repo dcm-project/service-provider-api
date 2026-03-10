@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -32,9 +31,9 @@ type ServiceTypeInstanceListResult struct {
 type ServiceTypeInstance interface {
 	List(ctx context.Context, opts *ServiceTypeInstanceListOptions) (*ServiceTypeInstanceListResult, error)
 	Create(ctx context.Context, instance model.ServiceTypeInstance) (*model.ServiceTypeInstance, error)
-	Delete(ctx context.Context, id uuid.UUID) error
-	Get(ctx context.Context, id uuid.UUID) (*model.ServiceTypeInstance, error)
-	ExistsByID(ctx context.Context, id uuid.UUID) (bool, error)
+	Delete(ctx context.Context, id string) error
+	Get(ctx context.Context, id string) (*model.ServiceTypeInstance, error)
+	ExistsByID(ctx context.Context, id string) (bool, error)
 }
 
 type ServiceTypeInstanceStore struct {
@@ -107,8 +106,8 @@ func (s *ServiceTypeInstanceStore) Create(ctx context.Context, instance model.Se
 	return &instance, nil
 }
 
-func (s *ServiceTypeInstanceStore) Delete(ctx context.Context, id uuid.UUID) error {
-	result := s.db.WithContext(ctx).Delete(&model.ServiceTypeInstance{}, id)
+func (s *ServiceTypeInstanceStore) Delete(ctx context.Context, id string) error {
+	result := s.db.WithContext(ctx).Where("id = ?", id).Delete(&model.ServiceTypeInstance{})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -118,9 +117,9 @@ func (s *ServiceTypeInstanceStore) Delete(ctx context.Context, id uuid.UUID) err
 	return nil
 }
 
-func (s *ServiceTypeInstanceStore) Get(ctx context.Context, id uuid.UUID) (*model.ServiceTypeInstance, error) {
+func (s *ServiceTypeInstanceStore) Get(ctx context.Context, id string) (*model.ServiceTypeInstance, error) {
 	var instance model.ServiceTypeInstance
-	if err := s.db.WithContext(ctx).First(&instance, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("id = ?", id).First(&instance).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrInstanceNotFound
 		}
@@ -129,9 +128,9 @@ func (s *ServiceTypeInstanceStore) Get(ctx context.Context, id uuid.UUID) (*mode
 	return &instance, nil
 }
 
-func (s *ServiceTypeInstanceStore) ExistsByID(ctx context.Context, id uuid.UUID) (bool, error) {
+func (s *ServiceTypeInstanceStore) ExistsByID(ctx context.Context, id string) (bool, error) {
 	var instance model.ServiceTypeInstance
-	err := s.db.WithContext(ctx).Select("id").Where(&model.ServiceTypeInstance{ID: id}).Take(&instance).Error
+	err := s.db.WithContext(ctx).Select("id").Where("id = ?", id).Take(&instance).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil
