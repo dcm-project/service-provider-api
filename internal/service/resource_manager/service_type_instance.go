@@ -55,10 +55,9 @@ func (s *InstanceService) CreateInstance(ctx context.Context, request *resource_
 	if err != nil {
 		return nil, err
 	}
-	instanceIDStr := instanceID.String()
 
 	// Send request to provider endpoint with the resolved ID
-	providerResponse, err := s.createInstanceWithProvider(ctx, provider.Endpoint, request, &instanceIDStr)
+	providerResponse, err := s.createInstanceWithProvider(ctx, provider.Endpoint, request, instanceID)
 	if err != nil {
 		return nil, service.NewProviderError(fmt.Sprintf("Error from Provider (%s): %v", providerName, err))
 	}
@@ -66,7 +65,7 @@ func (s *InstanceService) CreateInstance(ctx context.Context, request *resource_
 
 	// Create instance in database
 	instance := model.ServiceTypeInstance{
-		ID:           instanceID,
+		ID:           *instanceID,
 		ProviderName: providerName,
 		Status:       providerResponse.Status,
 		Spec:         request.Spec,
@@ -86,12 +85,7 @@ func (s *InstanceService) CreateInstance(ctx context.Context, request *resource_
 
 // GetInstance retrieves an instance by ID
 func (s *InstanceService) GetInstance(ctx context.Context, instanceID string) (*resource_manager.ServiceTypeInstance, error) {
-	id, err := uuid.Parse(instanceID)
-	if err != nil {
-		return nil, service.NewValidationError("invalid instance ID format")
-	}
-
-	instance, err := s.store.ServiceTypeInstance().Get(ctx, id)
+	instance, err := s.store.ServiceTypeInstance().Get(ctx, instanceID)
 	if err != nil {
 		if errors.Is(err, rmstore.ErrInstanceNotFound) {
 			return nil, service.NewNotFoundError(fmt.Sprintf("instance %s not found", instanceID))
@@ -143,13 +137,8 @@ func (s *InstanceService) ListInstances(ctx context.Context, providerName *strin
 
 // DeleteInstance removes an instance by ID
 func (s *InstanceService) DeleteInstance(ctx context.Context, instanceID string) error {
-	id, err := uuid.Parse(instanceID)
-	if err != nil {
-		return service.NewValidationError("invalid instance ID format")
-	}
-
 	// Get instance to find provider
-	instance, err := s.store.ServiceTypeInstance().Get(ctx, id)
+	instance, err := s.store.ServiceTypeInstance().Get(ctx, instanceID)
 	if err != nil {
 		if errors.Is(err, rmstore.ErrInstanceNotFound) {
 			return service.NewNotFoundError(fmt.Sprintf("instance %s not found", instanceID))
@@ -174,7 +163,7 @@ func (s *InstanceService) DeleteInstance(ctx context.Context, instanceID string)
 	}
 
 	// Delete from database
-	err = s.store.ServiceTypeInstance().Delete(ctx, id)
+	err = s.store.ServiceTypeInstance().Delete(ctx, instanceID)
 	if err != nil {
 		// add re-try mechanism
 		return service.NewInternalError(fmt.Sprintf("failed to delete database record for instance %s: %v", instanceID, err))
@@ -185,26 +174,24 @@ func (s *InstanceService) DeleteInstance(ctx context.Context, instanceID string)
 }
 
 // resolveInstanceID returns the requested ID after checking for conflicts, or generates a new one
-func (s *InstanceService) resolveInstanceID(ctx context.Context, queryID *string) (uuid.UUID, error) {
+func (s *InstanceService) resolveInstanceID(ctx context.Context, queryID *string) (*string, error) {
 
 	if queryID == nil || *queryID == "" {
-		return uuid.New(), nil
+		generatedId := uuid.New().String()
+		return &generatedId, nil
 	}
 
-	requestedID, err := uuid.Parse(*queryID)
-	if err != nil {
-		return uuid.UUID{}, service.NewValidationError("invalid instance ID format")
-	}
+	requestedID := *queryID
 
 	exists, err := s.store.ServiceTypeInstance().ExistsByID(ctx, requestedID)
 	if err != nil {
-		return uuid.UUID{}, service.NewInternalError(fmt.Sprintf("failed to check instance existence: %v", err))
+		return nil, service.NewInternalError(fmt.Sprintf("failed to check instance existence: %v", err))
 	}
 	if exists {
-		return uuid.UUID{}, service.NewConflictError(fmt.Sprintf("instance with ID '%s' already exists", requestedID))
+		return nil, service.NewConflictError(fmt.Sprintf("instance with ID '%s' already exists", requestedID))
 	}
 
-	return requestedID, nil
+	return &requestedID, nil
 }
 
 // createInstanceWithProvider sends the create request to the provider's endpoint

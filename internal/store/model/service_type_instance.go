@@ -2,12 +2,10 @@ package model
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type ServiceTypeInstance struct {
-	ID           uuid.UUID      `gorm:"primaryKey;type:uuid"`
+	ID           string         `gorm:"primaryKey;type:varchar(63)"`
 	ProviderName string         `gorm:"column:provider_name;not null"`
 	Status       string         `gorm:"column:status;not null"`
 	InstanceName string         `gorm:"column:instance_name;not null"`

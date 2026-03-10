@@ -50,7 +50,7 @@ var _ = Describe("Resource Manager Handler", func() {
 
 		// Create a provider in the database
 		provider := model.Provider{
-			ID:          uuid.New(),
+			ID:          uuid.New().String(),
 			Name:        "test-provider",
 			ServiceType: "vm",
 			Endpoint:    mockProvider.URL,
@@ -191,18 +191,6 @@ var _ = Describe("Resource Manager Handler", func() {
 			_, ok := resp.(server.GetInstance404ApplicationProblemPlusJSONResponse)
 			Expect(ok).To(BeTrue())
 		})
-
-		It("returns 400 for invalid ID format", func() {
-			req := server.GetInstanceRequestObject{
-				InstanceId: "not-a-uuid",
-			}
-
-			resp, err := handler.GetInstance(ctx, req)
-
-			Expect(err).NotTo(HaveOccurred())
-			_, ok := resp.(server.GetInstance400ApplicationProblemPlusJSONResponse)
-			Expect(ok).To(BeTrue())
-		})
 	})
 
 	Describe("ListInstances", func() {
@@ -337,18 +325,6 @@ var _ = Describe("Resource Manager Handler", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 			_, ok := resp.(server.DeleteInstance404ApplicationProblemPlusJSONResponse)
-			Expect(ok).To(BeTrue())
-		})
-
-		It("returns 400 for invalid ID format", func() {
-			req := server.DeleteInstanceRequestObject{
-				InstanceId: "invalid-uuid",
-			}
-
-			resp, err := handler.DeleteInstance(ctx, req)
-
-			Expect(err).NotTo(HaveOccurred())
-			_, ok := resp.(server.DeleteInstance400ApplicationProblemPlusJSONResponse)
 			Expect(ok).To(BeTrue())
 		})
 	})

@@ -16,7 +16,7 @@ type ProviderResponse struct {
 
 // ModelToAPI converts a database model to an API response type.
 func ModelToAPI(instance *model.ServiceTypeInstance) *resource_manager.ServiceTypeInstance {
-	id := instance.ID.String()
+	id := instance.ID
 	path := fmt.Sprintf("service-type-instances/%s", id)
 
 	return &resource_manager.ServiceTypeInstance{

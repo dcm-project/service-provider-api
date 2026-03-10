@@ -5,15 +5,12 @@ import (
 
 	"github.com/dcm-project/service-provider-manager/internal/api/server"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
-	"github.com/google/uuid"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // ModelToProvider converts a database model to an API response type
 func ModelToProvider(m *model.Provider) *server.Provider {
-	id := openapi_types.UUID(m.ID)
 	return &server.Provider{
-		Id:            &id,
+		Id:            &m.ID,
 		Name:          m.Name,
 		ServiceType:   m.ServiceType,
 		SchemaVersion: m.SchemaVersion,
@@ -32,7 +29,7 @@ func ModelToProviderWithStatus(m *model.Provider, status server.ProviderStatus) 
 }
 
 // ProviderToModel converts an API request to a database model
-func ProviderToModel(req *server.Provider, id uuid.UUID) model.Provider {
+func ProviderToModel(req *server.Provider, id string) model.Provider {
 	now := time.Now()
 	return model.Provider{
 		ID:            id,

@@ -9,7 +9,6 @@ import (
 	"github.com/dcm-project/service-provider-manager/internal/store"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
 	"github.com/google/uuid"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/driver/sqlite"
@@ -109,7 +108,7 @@ var _ = Describe("Handler", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Try to create with same name but different ID
-			differentID := openapi_types.UUID(uuid.New())
+			differentID := uuid.New().String()
 			req2 := server.CreateProviderRequestObject{
 				Params: server.CreateProviderParams{Id: &differentID},
 				Body: &server.Provider{
@@ -192,7 +191,7 @@ var _ = Describe("Handler", func() {
 
 		It("returns 404 for non-existent provider", func() {
 			req := server.GetProviderRequestObject{
-				ProviderId: openapi_types.UUID(uuid.New()),
+				ProviderId: uuid.New().String(),
 			}
 
 			resp, err := handler.GetProvider(ctx, req)
@@ -239,7 +238,7 @@ var _ = Describe("Handler", func() {
 
 		It("returns 404 for non-existent provider", func() {
 			req := server.ApplyProviderRequestObject{
-				ProviderId: openapi_types.UUID(uuid.New()),
+				ProviderId: uuid.New().String(),
 				Body: &server.Provider{
 					Name:          "test",
 					Endpoint:      "https://example.com",
@@ -283,7 +282,7 @@ var _ = Describe("Handler", func() {
 
 		It("returns 404 for non-existent provider", func() {
 			req := server.DeleteProviderRequestObject{
-				ProviderId: openapi_types.UUID(uuid.New()),
+				ProviderId: uuid.New().String(),
 			}
 
 			resp, err := handler.DeleteProvider(ctx, req)

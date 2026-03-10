@@ -10,7 +10,6 @@ import (
 	"github.com/dcm-project/service-provider-manager/api/v1alpha1"
 	"github.com/dcm-project/service-provider-manager/pkg/client"
 	"github.com/google/uuid"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -79,7 +78,7 @@ var _ = Describe("Provider API", func() {
 			Expect(reregResp.StatusCode()).To(Equal(http.StatusOK))
 			Expect(reregResp.JSON200).NotTo(BeNil())
 			Expect(*reregResp.JSON200.Status).To(Equal(v1alpha1.Updated))
-			Expect(reregResp.JSON200.Id.String()).To(Equal(providerID.String()))
+			Expect(*reregResp.JSON200.Id).To(Equal(providerID))
 
 			By("listing providers")
 			listResp, err := apiClient.ListProvidersWithResponse(ctx, nil)
@@ -112,7 +111,7 @@ var _ = Describe("Provider API", func() {
 	})
 
 	Describe("Conflict scenarios", func() {
-		var providerID openapi_types.UUID
+		var providerID string
 
 		BeforeEach(func() {
 			resp, err := apiClient.CreateProviderWithResponse(ctx, nil, v1alpha1.Provider{
@@ -131,7 +130,7 @@ var _ = Describe("Provider API", func() {
 		})
 
 		It("returns 409 when registering same name with different ID", func() {
-			newID := openapi_types.UUID(uuid.New())
+			newID := uuid.New().String()
 			params := &v1alpha1.CreateProviderParams{Id: &newID}
 
 			resp, err := apiClient.CreateProviderWithResponse(ctx, params, v1alpha1.Provider{

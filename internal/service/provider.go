@@ -13,7 +13,6 @@ import (
 	"github.com/dcm-project/service-provider-manager/internal/store"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
 	"github.com/google/uuid"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
@@ -40,7 +39,7 @@ func NewProviderService(store store.Store) *ProviderService {
 // RegisterOrUpdateProvider implements idempotent provider registration per the DCM spec.
 // Returns status "registered" for new providers, "updated" for existing ones.
 // Returns ErrCodeConflict if name exists with different ID or ID exists with different name.
-func (s *ProviderService) RegisterOrUpdateProvider(ctx context.Context, req *server.Provider, queryID *openapi_types.UUID) (*server.Provider, error) {
+func (s *ProviderService) RegisterOrUpdateProvider(ctx context.Context, req *server.Provider, queryID *string) (*server.Provider, error) {
 	requestedID := s.parseProviderID(req.Id, queryID)
 
 	existing, err := s.findExistingByName(ctx, req.Name, requestedID)
@@ -61,7 +60,7 @@ func (s *ProviderService) RegisterOrUpdateProvider(ctx context.Context, req *ser
 		return nil, err
 	}
 
-	providerModel := ProviderToModel(req, providerID)
+	providerModel := ProviderToModel(req, *providerID)
 	created, err := s.store.Provider().Create(ctx, providerModel)
 	if err != nil {
 		return nil, err
@@ -72,21 +71,21 @@ func (s *ProviderService) RegisterOrUpdateProvider(ctx context.Context, req *ser
 }
 
 // parseProviderID extracts the provider ID from request body or query parameter.
-func (s *ProviderService) parseProviderID(bodyID *openapi_types.UUID, queryID *openapi_types.UUID) *uuid.UUID {
+func (s *ProviderService) parseProviderID(bodyID *string, queryID *string) *string {
 	if bodyID != nil {
-		id := uuid.UUID(*bodyID)
-		return &id
+		id := bodyID
+		return id
 	}
 	if queryID != nil {
-		id := uuid.UUID(*queryID)
-		return &id
+		id := queryID
+		return id
 	}
 	return nil
 }
 
 // findExistingByName returns the existing provider if name exists and is valid for update.
 // Returns ErrCodeConflict if name exists with a different ID than requested.
-func (s *ProviderService) findExistingByName(ctx context.Context, name string, requestedID *uuid.UUID) (*model.Provider, error) {
+func (s *ProviderService) findExistingByName(ctx context.Context, name string, requestedID *string) (*model.Provider, error) {
 	existing, err := s.store.Provider().GetByName(ctx, name)
 	if err != nil {
 		if errors.Is(err, store.ErrProviderNotFound) {
@@ -106,23 +105,24 @@ func (s *ProviderService) findExistingByName(ctx context.Context, name string, r
 }
 
 // resolveProviderID returns the requested ID after checking for conflicts, or generates a new one.
-func (s *ProviderService) resolveProviderID(ctx context.Context, requestedID *uuid.UUID) (uuid.UUID, error) {
+func (s *ProviderService) resolveProviderID(ctx context.Context, requestedID *string) (*string, error) {
 	if requestedID == nil {
-		return uuid.New(), nil
+		generatedID := uuid.New().String()
+		return &generatedID, nil
 	}
 
 	exists, err := s.store.Provider().ExistsByID(ctx, *requestedID)
 	if err != nil {
-		return uuid.UUID{}, err
+		return nil, err
 	}
 	if exists {
-		return uuid.UUID{}, &ServiceError{
+		return nil, &ServiceError{
 			Code:    ErrCodeConflict,
 			Message: fmt.Sprintf("provider with ID '%s' already exists", *requestedID),
 		}
 	}
 
-	return *requestedID, nil
+	return requestedID, nil
 }
 
 func (s *ProviderService) updateExistingProvider(ctx context.Context, existing *model.Provider, req *server.Provider) (*model.Provider, error) {
@@ -143,12 +143,7 @@ func (s *ProviderService) updateExistingProvider(ctx context.Context, existing *
 
 // GetProvider retrieves a provider by ID. Returns ErrCodeNotFound if not found.
 func (s *ProviderService) GetProvider(ctx context.Context, providerID string) (*server.Provider, error) {
-	id, err := uuid.Parse(providerID)
-	if err != nil {
-		return nil, &ServiceError{Code: ErrCodeValidation, Message: "invalid provider ID format"}
-	}
-
-	provider, err := s.store.Provider().Get(ctx, id)
+	provider, err := s.store.Provider().Get(ctx, providerID)
 	if err != nil {
 		if errors.Is(err, store.ErrProviderNotFound) {
 			return nil, &ServiceError{Code: ErrCodeNotFound, Message: fmt.Sprintf("provider %s not found", providerID)}
@@ -236,12 +231,7 @@ func DecodePageToken(token string) (int, error) {
 // UpdateProvider updates an existing provider. Returns ErrCodeNotFound if provider
 // doesn't exist, or ErrCodeConflict if the new name is already taken.
 func (s *ProviderService) UpdateProvider(ctx context.Context, providerID string, update *server.Provider) (*server.Provider, error) {
-	id, err := uuid.Parse(providerID)
-	if err != nil {
-		return nil, &ServiceError{Code: ErrCodeValidation, Message: "invalid provider ID format"}
-	}
-
-	existing, err := s.store.Provider().Get(ctx, id)
+	existing, err := s.store.Provider().Get(ctx, providerID)
 	if err != nil {
 		if errors.Is(err, store.ErrProviderNotFound) {
 			return nil, &ServiceError{Code: ErrCodeNotFound, Message: fmt.Sprintf("provider %s not found", providerID)}
@@ -255,7 +245,7 @@ func (s *ProviderService) UpdateProvider(ctx context.Context, providerID string,
 		if err != nil && !errors.Is(err, store.ErrProviderNotFound) {
 			return nil, err
 		}
-		if other != nil && other.ID != id {
+		if other != nil && other.ID != providerID {
 			return nil, &ServiceError{Code: ErrCodeConflict, Message: fmt.Sprintf("name '%s' is already taken", update.Name)}
 		}
 	}
@@ -270,12 +260,7 @@ func (s *ProviderService) UpdateProvider(ctx context.Context, providerID string,
 
 // DeleteProvider removes a provider by ID. Returns ErrCodeNotFound if not found.
 func (s *ProviderService) DeleteProvider(ctx context.Context, providerID string) error {
-	id, err := uuid.Parse(providerID)
-	if err != nil {
-		return &ServiceError{Code: ErrCodeValidation, Message: "invalid provider ID format"}
-	}
-
-	err = s.store.Provider().Delete(ctx, id)
+	err := s.store.Provider().Delete(ctx, providerID)
 	if err != nil {
 		if errors.Is(err, store.ErrProviderNotFound) {
 			return &ServiceError{Code: ErrCodeNotFound, Message: fmt.Sprintf("provider %s not found", providerID)}

@@ -2,8 +2,6 @@ package model
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // HealthStatus represents the health status of a provider
@@ -22,7 +20,7 @@ func (h HealthStatus) StringPtr() *string {
 }
 
 type Provider struct {
-	ID            uuid.UUID `gorm:"primaryKey;type:uuid"`
+	ID            string    `gorm:"primaryKey;type:varchar(63)"`
 	Name          string    `gorm:"uniqueIndex;not null"`
 	ServiceType   string    `gorm:"column:service_type;not null"`
 	SchemaVersion string    `gorm:"column:schema_version;not null"`
