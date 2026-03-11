@@ -69,6 +69,24 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(created.ID).To(Equal(instance.ID))
 		})
+
+		It("retries on transient DB errors", func() {
+			// Close DB to simulate transient failure
+			sqlDB, err := db.DB()
+			Expect(err).NotTo(HaveOccurred())
+			sqlDB.Close()
+
+			instance := newServiceTypeInstance(
+				kubevirtProvider,
+				"retry-test",
+				map[string]any{"cpu": 1})
+
+			_, err = s.Create(ctx, instance)
+
+			// Should fail after retries exhausted
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("database is closed"))
+		})
 	})
 
 	Describe("Get", func() {
@@ -154,6 +172,15 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 
 		It("returns ErrInstanceNotFound for missing ID", func() {
 			err := s.Delete(ctx, uuid.New().String())
+			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
+		})
+
+		It("does not retry on permanent errors (not found)", func() {
+			// Delete non-existent instance - should fail immediately without retries
+			nonExistentID := uuid.New().String()
+			err := s.Delete(ctx, nonExistentID)
+
+			// Should return ErrInstanceNotFound immediately (permanent error)
 			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
 		})
 	})

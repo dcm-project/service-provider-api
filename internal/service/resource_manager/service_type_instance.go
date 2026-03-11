@@ -25,7 +25,8 @@ func NewInstanceService(store store.Store) *InstanceService {
 	client := resty.New().
 		SetTimeout(30 * time.Second).
 		SetRetryCount(3).
-		SetRetryWaitTime(1 * time.Second)
+		SetRetryWaitTime(2 * time.Second).
+		SetRetryMaxWaitTime(30 * time.Second)
 
 	return &InstanceService{
 		store:      store,
@@ -73,7 +74,6 @@ func (s *InstanceService) CreateInstance(ctx context.Context, request *resource_
 
 	created, err := s.store.ServiceTypeInstance().Create(ctx, instance)
 	if err != nil {
-		// add re-try mechanism
 		return nil, service.NewInternalError(fmt.Sprintf("failed to create database record for instance %s: %v", providerResponse.ID, err))
 	}
 
@@ -162,10 +162,9 @@ func (s *InstanceService) DeleteInstance(ctx context.Context, instanceID string)
 		log.Printf("Deleted instance (%s) from SP (%s)", instanceID, provider.Name)
 	}
 
-	// Delete from database
+	// Delete from database with retry mechanism
 	err = s.store.ServiceTypeInstance().Delete(ctx, instanceID)
 	if err != nil {
-		// add re-try mechanism
 		return service.NewInternalError(fmt.Sprintf("failed to delete database record for instance %s: %v", instanceID, err))
 	}
 

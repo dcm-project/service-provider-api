@@ -5,7 +5,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"strconv"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -100,21 +102,54 @@ func (s *ServiceTypeInstanceStore) List(ctx context.Context, opts *ServiceTypeIn
 }
 
 func (s *ServiceTypeInstanceStore) Create(ctx context.Context, instance model.ServiceTypeInstance) (*model.ServiceTypeInstance, error) {
-	if err := s.db.WithContext(ctx).Clauses(clause.Returning{}).Create(&instance).Error; err != nil {
+	// Configure exponential backoff retry strategy
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 1 * time.Second // Wait 1 second before first retry
+	b.MaxInterval = 4 * time.Second     // Cap maximum wait time at 4 seconds
+	b.Multiplier = 2.0                  // Double the wait time after each retry (1s, 2s, 4s)
+
+	// Exactly 3 retries
+	backoffWithRetries := backoff.WithMaxRetries(b, 3)
+
+	var result *model.ServiceTypeInstance
+	operation := func() error {
+		if err := s.db.WithContext(ctx).Clauses(clause.Returning{}).Create(&instance).Error; err != nil {
+			return err
+		}
+		result = &instance
+		return nil
+	}
+
+	if err := backoff.Retry(operation, backoffWithRetries); err != nil {
 		return nil, err
 	}
-	return &instance, nil
+
+	return result, nil
 }
 
 func (s *ServiceTypeInstanceStore) Delete(ctx context.Context, id string) error {
-	result := s.db.WithContext(ctx).Where("id = ?", id).Delete(&model.ServiceTypeInstance{})
-	if result.Error != nil {
-		return result.Error
+	// Configure exponential backoff retry strategy
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 1 * time.Second // Wait 1 second before first retry
+	b.MaxInterval = 4 * time.Second     // Cap maximum wait time at 4 seconds
+	b.Multiplier = 2.0                  // Double the wait time after each retry (1s, 2s, 4s)
+
+	// Exactly 3 retries
+	backoffWithRetries := backoff.WithMaxRetries(b, 3)
+
+	operation := func() error {
+		result := s.db.WithContext(ctx).Where("id = ?", id).Delete(&model.ServiceTypeInstance{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			// Don't retry if record not found
+			return backoff.Permanent(ErrInstanceNotFound)
+		}
+		return nil
 	}
-	if result.RowsAffected == 0 {
-		return ErrInstanceNotFound
-	}
-	return nil
+
+	return backoff.Retry(operation, backoffWithRetries)
 }
 
 func (s *ServiceTypeInstanceStore) Get(ctx context.Context, id string) (*model.ServiceTypeInstance, error) {
