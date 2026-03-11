@@ -143,6 +143,9 @@ type ResourceCapacity struct {
 	TotalStorage *string `json:"total_storage,omitempty"`
 }
 
+// ProviderIdPath defines model for ProviderIdPath.
+type ProviderIdPath = string
+
 // ListProvidersParams defines parameters for ListProviders.
 type ListProvidersParams struct {
 	// Type Filter providers by service type
@@ -293,13 +296,13 @@ type ServerInterface interface {
 	CreateProvider(w http.ResponseWriter, r *http.Request, params CreateProviderParams)
 	// Delete a service Provider
 	// (DELETE /providers/{providerId})
-	DeleteProvider(w http.ResponseWriter, r *http.Request, providerId string)
+	DeleteProvider(w http.ResponseWriter, r *http.Request, providerId ProviderIdPath)
 	// Get a provider
 	// (GET /providers/{providerId})
-	GetProvider(w http.ResponseWriter, r *http.Request, providerId string)
+	GetProvider(w http.ResponseWriter, r *http.Request, providerId ProviderIdPath)
 	// Update a Service Provider
 	// (PUT /providers/{providerId})
-	ApplyProvider(w http.ResponseWriter, r *http.Request, providerId string)
+	ApplyProvider(w http.ResponseWriter, r *http.Request, providerId ProviderIdPath)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -326,19 +329,19 @@ func (_ Unimplemented) CreateProvider(w http.ResponseWriter, r *http.Request, pa
 
 // Delete a service Provider
 // (DELETE /providers/{providerId})
-func (_ Unimplemented) DeleteProvider(w http.ResponseWriter, r *http.Request, providerId string) {
+func (_ Unimplemented) DeleteProvider(w http.ResponseWriter, r *http.Request, providerId ProviderIdPath) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get a provider
 // (GET /providers/{providerId})
-func (_ Unimplemented) GetProvider(w http.ResponseWriter, r *http.Request, providerId string) {
+func (_ Unimplemented) GetProvider(w http.ResponseWriter, r *http.Request, providerId ProviderIdPath) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Update a Service Provider
 // (PUT /providers/{providerId})
-func (_ Unimplemented) ApplyProvider(w http.ResponseWriter, r *http.Request, providerId string) {
+func (_ Unimplemented) ApplyProvider(w http.ResponseWriter, r *http.Request, providerId ProviderIdPath) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -441,7 +444,7 @@ func (siw *ServerInterfaceWrapper) DeleteProvider(w http.ResponseWriter, r *http
 	var err error
 
 	// ------------- Path parameter "providerId" -------------
-	var providerId string
+	var providerId ProviderIdPath
 
 	err = runtime.BindStyledParameterWithOptions("simple", "providerId", chi.URLParam(r, "providerId"), &providerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
@@ -466,7 +469,7 @@ func (siw *ServerInterfaceWrapper) GetProvider(w http.ResponseWriter, r *http.Re
 	var err error
 
 	// ------------- Path parameter "providerId" -------------
-	var providerId string
+	var providerId ProviderIdPath
 
 	err = runtime.BindStyledParameterWithOptions("simple", "providerId", chi.URLParam(r, "providerId"), &providerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
@@ -491,7 +494,7 @@ func (siw *ServerInterfaceWrapper) ApplyProvider(w http.ResponseWriter, r *http.
 	var err error
 
 	// ------------- Path parameter "providerId" -------------
-	var providerId string
+	var providerId ProviderIdPath
 
 	err = runtime.BindStyledParameterWithOptions("simple", "providerId", chi.URLParam(r, "providerId"), &providerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
@@ -766,7 +769,7 @@ func (response CreateProviderdefaultApplicationProblemPlusJSONResponse) VisitCre
 }
 
 type DeleteProviderRequestObject struct {
-	ProviderId string `json:"providerId"`
+	ProviderId ProviderIdPath `json:"providerId"`
 }
 
 type DeleteProviderResponseObject interface {
@@ -812,7 +815,7 @@ func (response DeleteProviderdefaultApplicationProblemPlusJSONResponse) VisitDel
 }
 
 type GetProviderRequestObject struct {
-	ProviderId string `json:"providerId"`
+	ProviderId ProviderIdPath `json:"providerId"`
 }
 
 type GetProviderResponseObject interface {
@@ -859,7 +862,7 @@ func (response GetProviderdefaultApplicationProblemPlusJSONResponse) VisitGetPro
 }
 
 type ApplyProviderRequestObject struct {
-	ProviderId string `json:"providerId"`
+	ProviderId ProviderIdPath `json:"providerId"`
 	Body       *ApplyProviderJSONRequestBody
 }
 
@@ -1050,7 +1053,7 @@ func (sh *strictHandler) CreateProvider(w http.ResponseWriter, r *http.Request, 
 }
 
 // DeleteProvider operation middleware
-func (sh *strictHandler) DeleteProvider(w http.ResponseWriter, r *http.Request, providerId string) {
+func (sh *strictHandler) DeleteProvider(w http.ResponseWriter, r *http.Request, providerId ProviderIdPath) {
 	var request DeleteProviderRequestObject
 
 	request.ProviderId = providerId
@@ -1076,7 +1079,7 @@ func (sh *strictHandler) DeleteProvider(w http.ResponseWriter, r *http.Request, 
 }
 
 // GetProvider operation middleware
-func (sh *strictHandler) GetProvider(w http.ResponseWriter, r *http.Request, providerId string) {
+func (sh *strictHandler) GetProvider(w http.ResponseWriter, r *http.Request, providerId ProviderIdPath) {
 	var request GetProviderRequestObject
 
 	request.ProviderId = providerId
@@ -1102,7 +1105,7 @@ func (sh *strictHandler) GetProvider(w http.ResponseWriter, r *http.Request, pro
 }
 
 // ApplyProvider operation middleware
-func (sh *strictHandler) ApplyProvider(w http.ResponseWriter, r *http.Request, providerId string) {
+func (sh *strictHandler) ApplyProvider(w http.ResponseWriter, r *http.Request, providerId ProviderIdPath) {
 	var request ApplyProviderRequestObject
 
 	request.ProviderId = providerId
