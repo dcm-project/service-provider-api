@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/dcm-project/service-provider-manager/api/v1alpha1"
@@ -13,8 +14,11 @@ import (
 	"github.com/dcm-project/service-provider-manager/internal/api/server"
 	rmserver "github.com/dcm-project/service-provider-manager/internal/api/server/resource_manager"
 	"github.com/dcm-project/service-provider-manager/internal/config"
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 )
 
 const gracefulShutdownTimeout = 5 * time.Second
@@ -40,25 +44,36 @@ func (s *Server) Run(ctx context.Context) error {
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 
-	// Provider API
-	swagger, err := v1alpha1.GetSwagger()
+	// Load both OpenAPI specs for validation
+	providerSwagger, err := v1alpha1.GetSwagger()
 	if err != nil {
-		return fmt.Errorf("load OpenAPI spec: %w", err)
+		return fmt.Errorf("load Provider OpenAPI spec: %w", err)
 	}
-	if len(swagger.Servers) == 0 {
-		return fmt.Errorf("OpenAPI spec missing servers configuration")
-	}
-	server.HandlerFromMuxWithBaseURL(server.NewStrictHandler(s.providerHandler, nil), router, swagger.Servers[0].URL)
 
-	// Resource Manager API
 	rmSwagger, err := resource_manager.GetSwagger()
 	if err != nil {
 		return fmt.Errorf("load Resource Manager OpenAPI spec: %w", err)
 	}
-	if len(rmSwagger.Servers) == 0 {
-		return fmt.Errorf("Resource Manager OpenAPI spec missing servers configuration")
-	}
-	rmserver.HandlerFromMuxWithBaseURL(rmserver.NewStrictHandler(s.rmHandler, nil), router, rmSwagger.Servers[0].URL)
+
+	// Create /api/v1alpha1 router
+	apiRouter := chi.NewRouter()
+
+	// Add smart validation middleware that routes to the correct validator
+	apiRouter.Use(s.validationMiddleware(providerSwagger, rmSwagger))
+
+	// Register both handler sets
+	server.HandlerFromMux(
+		server.NewStrictHandler(s.providerHandler, nil),
+		apiRouter,
+	)
+
+	rmserver.HandlerFromMux(
+		rmserver.NewStrictHandler(s.rmHandler, nil),
+		apiRouter,
+	)
+
+	// Mount the API router
+	router.Mount("/api/v1alpha1", apiRouter)
 
 	srv := http.Server{Handler: router}
 
@@ -74,4 +89,33 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// validationMiddleware returns middleware that validates requests against the appropriate OpenAPI spec
+func (s *Server) validationMiddleware(providerSwagger, rmSwagger *openapi3.T) func(http.Handler) http.Handler {
+	// Create validators once for better performance
+	providerValidator := nethttpmiddleware.OapiRequestValidatorWithOptions(providerSwagger, &nethttpmiddleware.Options{
+		Options: openapi3filter.Options{
+			AuthenticationFunc: openapi3filter.NoopAuthenticationFunc,
+		},
+		SilenceServersWarning: true,
+	})
+
+	rmValidator := nethttpmiddleware.OapiRequestValidatorWithOptions(rmSwagger, &nethttpmiddleware.Options{
+		Options: openapi3filter.Options{
+			AuthenticationFunc: openapi3filter.NoopAuthenticationFunc,
+		},
+		SilenceServersWarning: true,
+	})
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Route to the appropriate validator based on path
+			if strings.HasPrefix(r.URL.Path, "/api/v1alpha1/service-type-instances") {
+				rmValidator(next).ServeHTTP(w, r)
+			} else {
+				providerValidator(next).ServeHTTP(w, r)
+			}
+		})
+	}
 }
