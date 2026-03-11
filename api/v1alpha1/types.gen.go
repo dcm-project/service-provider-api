@@ -137,6 +137,9 @@ type ResourceCapacity struct {
 	TotalStorage *string `json:"total_storage,omitempty"`
 }
 
+// ProviderIdPath defines model for ProviderIdPath.
+type ProviderIdPath = string
+
 // ListProvidersParams defines parameters for ListProviders.
 type ListProvidersParams struct {
 	// Type Filter providers by service type

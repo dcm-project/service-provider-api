@@ -102,15 +102,15 @@ type ClientInterface interface {
 	CreateProvider(ctx context.Context, params *CreateProviderParams, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteProvider request
-	DeleteProvider(ctx context.Context, providerId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteProvider(ctx context.Context, providerId ProviderIdPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProvider request
-	GetProvider(ctx context.Context, providerId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetProvider(ctx context.Context, providerId ProviderIdPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ApplyProviderWithBody request with any body
-	ApplyProviderWithBody(ctx context.Context, providerId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ApplyProviderWithBody(ctx context.Context, providerId ProviderIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	ApplyProvider(ctx context.Context, providerId string, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ApplyProvider(ctx context.Context, providerId ProviderIdPath, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -161,7 +161,7 @@ func (c *Client) CreateProvider(ctx context.Context, params *CreateProviderParam
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteProvider(ctx context.Context, providerId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) DeleteProvider(ctx context.Context, providerId ProviderIdPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteProviderRequest(c.Server, providerId)
 	if err != nil {
 		return nil, err
@@ -173,7 +173,7 @@ func (c *Client) DeleteProvider(ctx context.Context, providerId string, reqEdito
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetProvider(ctx context.Context, providerId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetProvider(ctx context.Context, providerId ProviderIdPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProviderRequest(c.Server, providerId)
 	if err != nil {
 		return nil, err
@@ -185,7 +185,7 @@ func (c *Client) GetProvider(ctx context.Context, providerId string, reqEditors 
 	return c.Client.Do(req)
 }
 
-func (c *Client) ApplyProviderWithBody(ctx context.Context, providerId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) ApplyProviderWithBody(ctx context.Context, providerId ProviderIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewApplyProviderRequestWithBody(c.Server, providerId, contentType, body)
 	if err != nil {
 		return nil, err
@@ -197,7 +197,7 @@ func (c *Client) ApplyProviderWithBody(ctx context.Context, providerId string, c
 	return c.Client.Do(req)
 }
 
-func (c *Client) ApplyProvider(ctx context.Context, providerId string, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) ApplyProvider(ctx context.Context, providerId ProviderIdPath, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewApplyProviderRequest(c.Server, providerId, body)
 	if err != nil {
 		return nil, err
@@ -380,7 +380,7 @@ func NewCreateProviderRequestWithBody(server string, params *CreateProviderParam
 }
 
 // NewDeleteProviderRequest generates requests for DeleteProvider
-func NewDeleteProviderRequest(server string, providerId string) (*http.Request, error) {
+func NewDeleteProviderRequest(server string, providerId ProviderIdPath) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -414,7 +414,7 @@ func NewDeleteProviderRequest(server string, providerId string) (*http.Request, 
 }
 
 // NewGetProviderRequest generates requests for GetProvider
-func NewGetProviderRequest(server string, providerId string) (*http.Request, error) {
+func NewGetProviderRequest(server string, providerId ProviderIdPath) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -448,7 +448,7 @@ func NewGetProviderRequest(server string, providerId string) (*http.Request, err
 }
 
 // NewApplyProviderRequest calls the generic ApplyProvider builder with application/json body
-func NewApplyProviderRequest(server string, providerId string, body ApplyProviderJSONRequestBody) (*http.Request, error) {
+func NewApplyProviderRequest(server string, providerId ProviderIdPath, body ApplyProviderJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
@@ -459,7 +459,7 @@ func NewApplyProviderRequest(server string, providerId string, body ApplyProvide
 }
 
 // NewApplyProviderRequestWithBody generates requests for ApplyProvider with any type of body
-func NewApplyProviderRequestWithBody(server string, providerId string, contentType string, body io.Reader) (*http.Request, error) {
+func NewApplyProviderRequestWithBody(server string, providerId ProviderIdPath, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -549,15 +549,15 @@ type ClientWithResponsesInterface interface {
 	CreateProviderWithResponse(ctx context.Context, params *CreateProviderParams, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error)
 
 	// DeleteProviderWithResponse request
-	DeleteProviderWithResponse(ctx context.Context, providerId string, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error)
+	DeleteProviderWithResponse(ctx context.Context, providerId ProviderIdPath, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error)
 
 	// GetProviderWithResponse request
-	GetProviderWithResponse(ctx context.Context, providerId string, reqEditors ...RequestEditorFn) (*GetProviderResponse, error)
+	GetProviderWithResponse(ctx context.Context, providerId ProviderIdPath, reqEditors ...RequestEditorFn) (*GetProviderResponse, error)
 
 	// ApplyProviderWithBodyWithResponse request with any body
-	ApplyProviderWithBodyWithResponse(ctx context.Context, providerId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error)
+	ApplyProviderWithBodyWithResponse(ctx context.Context, providerId ProviderIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error)
 
-	ApplyProviderWithResponse(ctx context.Context, providerId string, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error)
+	ApplyProviderWithResponse(ctx context.Context, providerId ProviderIdPath, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error)
 }
 
 type GetHealthResponse struct {
@@ -744,7 +744,7 @@ func (c *ClientWithResponses) CreateProviderWithResponse(ctx context.Context, pa
 }
 
 // DeleteProviderWithResponse request returning *DeleteProviderResponse
-func (c *ClientWithResponses) DeleteProviderWithResponse(ctx context.Context, providerId string, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error) {
+func (c *ClientWithResponses) DeleteProviderWithResponse(ctx context.Context, providerId ProviderIdPath, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error) {
 	rsp, err := c.DeleteProvider(ctx, providerId, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -753,7 +753,7 @@ func (c *ClientWithResponses) DeleteProviderWithResponse(ctx context.Context, pr
 }
 
 // GetProviderWithResponse request returning *GetProviderResponse
-func (c *ClientWithResponses) GetProviderWithResponse(ctx context.Context, providerId string, reqEditors ...RequestEditorFn) (*GetProviderResponse, error) {
+func (c *ClientWithResponses) GetProviderWithResponse(ctx context.Context, providerId ProviderIdPath, reqEditors ...RequestEditorFn) (*GetProviderResponse, error) {
 	rsp, err := c.GetProvider(ctx, providerId, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -762,7 +762,7 @@ func (c *ClientWithResponses) GetProviderWithResponse(ctx context.Context, provi
 }
 
 // ApplyProviderWithBodyWithResponse request with arbitrary body returning *ApplyProviderResponse
-func (c *ClientWithResponses) ApplyProviderWithBodyWithResponse(ctx context.Context, providerId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error) {
+func (c *ClientWithResponses) ApplyProviderWithBodyWithResponse(ctx context.Context, providerId ProviderIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error) {
 	rsp, err := c.ApplyProviderWithBody(ctx, providerId, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -770,7 +770,7 @@ func (c *ClientWithResponses) ApplyProviderWithBodyWithResponse(ctx context.Cont
 	return ParseApplyProviderResponse(rsp)
 }
 
-func (c *ClientWithResponses) ApplyProviderWithResponse(ctx context.Context, providerId string, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error) {
+func (c *ClientWithResponses) ApplyProviderWithResponse(ctx context.Context, providerId ProviderIdPath, body ApplyProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyProviderResponse, error) {
 	rsp, err := c.ApplyProvider(ctx, providerId, body, reqEditors...)
 	if err != nil {
 		return nil, err
