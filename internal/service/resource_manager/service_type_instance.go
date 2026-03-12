@@ -162,7 +162,7 @@ func (s *InstanceService) DeleteInstance(ctx context.Context, instanceID string)
 		log.Printf("Deleted instance (%s) from SP (%s)", instanceID, provider.Name)
 	}
 
-	// Delete from database with retry mechanism
+	// Delete from database
 	err = s.store.ServiceTypeInstance().Delete(ctx, instanceID)
 	if err != nil {
 		return service.NewInternalError(fmt.Sprintf("failed to delete database record for instance %s: %v", instanceID, err))

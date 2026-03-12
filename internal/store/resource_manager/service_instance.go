@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v5"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -102,54 +102,31 @@ func (s *ServiceTypeInstanceStore) List(ctx context.Context, opts *ServiceTypeIn
 }
 
 func (s *ServiceTypeInstanceStore) Create(ctx context.Context, instance model.ServiceTypeInstance) (*model.ServiceTypeInstance, error) {
-	// Configure exponential backoff retry strategy
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = 1 * time.Second // Wait 1 second before first retry
-	b.MaxInterval = 4 * time.Second     // Cap maximum wait time at 4 seconds
-	b.Multiplier = 2.0                  // Double the wait time after each retry (1s, 2s, 4s)
-
-	// Exactly 3 retries
-	backoffWithRetries := backoff.WithMaxRetries(b, 3)
-
-	var result *model.ServiceTypeInstance
-	operation := func() error {
+	operation := func() (*model.ServiceTypeInstance, error) {
 		if err := s.db.WithContext(ctx).Clauses(clause.Returning{}).Create(&instance).Error; err != nil {
-			return err
+			return nil, err
 		}
-		result = &instance
-		return nil
+		return &instance, nil
 	}
 
-	if err := backoff.Retry(operation, backoffWithRetries); err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return backoff.Retry(ctx, operation, getRetryOptions()...)
 }
 
 func (s *ServiceTypeInstanceStore) Delete(ctx context.Context, id string) error {
-	// Configure exponential backoff retry strategy
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = 1 * time.Second // Wait 1 second before first retry
-	b.MaxInterval = 4 * time.Second     // Cap maximum wait time at 4 seconds
-	b.Multiplier = 2.0                  // Double the wait time after each retry (1s, 2s, 4s)
-
-	// Exactly 3 retries
-	backoffWithRetries := backoff.WithMaxRetries(b, 3)
-
-	operation := func() error {
+	operation := func() (any, error) {
 		result := s.db.WithContext(ctx).Where("id = ?", id).Delete(&model.ServiceTypeInstance{})
 		if result.Error != nil {
-			return result.Error
+			return nil, result.Error
 		}
 		if result.RowsAffected == 0 {
 			// Don't retry if record not found
-			return backoff.Permanent(ErrInstanceNotFound)
+			return nil, backoff.Permanent(ErrInstanceNotFound)
 		}
-		return nil
+		return nil, nil
 	}
 
-	return backoff.Retry(operation, backoffWithRetries)
+	_, err := backoff.Retry(ctx, operation, getRetryOptions()...)
+	return err
 }
 
 func (s *ServiceTypeInstanceStore) Get(ctx context.Context, id string) (*model.ServiceTypeInstance, error) {
@@ -173,4 +150,17 @@ func (s *ServiceTypeInstanceStore) ExistsByID(ctx context.Context, id string) (b
 		return false, err
 	}
 	return true, nil
+}
+
+// getRetryOptions returns common retry configuration for database operations
+func getRetryOptions() []backoff.RetryOption {
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 1 * time.Second // Wait 1 second before first retry
+	b.MaxInterval = 4 * time.Second     // Cap maximum wait time at 4 seconds
+	b.Multiplier = 2.0                  // Double the wait time after each retry (1s, 2s, 4s)
+
+	return []backoff.RetryOption{
+		backoff.WithBackOff(b),
+		backoff.WithMaxTries(4), // 1 initial attempt + 3 retries = 4 max tries
+	}
 }
