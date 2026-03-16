@@ -34,7 +34,9 @@ e2e-up:
 e2e-down:
 	podman-compose down -v
 
-test-e2e-full: e2e-up test-e2e e2e-down
+test-e2e-full:
+	$(MAKE) e2e-up
+	$(MAKE) test-e2e; TEST_EXIT=$$?; $(MAKE) e2e-down; exit $$TEST_EXIT
 
 tidy:
 	go mod tidy
