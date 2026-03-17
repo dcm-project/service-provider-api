@@ -1,14 +1,14 @@
 services:
   postgres:
-    image: docker.io/library/postgres:16-alpine
+    image: quay.io/sclorg/postgresql-16-c9s:latest
     environment:
-      POSTGRES_DB: service-provider
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: adminpass
+      POSTGRESQL_DATABASE: service-provider
+      POSTGRESQL_USER: admin
+      POSTGRESQL_PASSWORD: adminpass
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/pgsql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin -d service-provider"]
       interval: 5s
@@ -16,7 +16,7 @@ services:
       retries: 5
 
   provider-wiremock:
-    image: docker.io/wiremock/wiremock:3.12.1
+    image: wiremock/wiremock:3x
     ports:
       - "9090:8080"
     healthcheck:
