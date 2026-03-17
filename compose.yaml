@@ -15,6 +15,15 @@ services:
       timeout: 5s
       retries: 5
 
+  nats:
+    image: docker.io/library/nats:2-alpine
+    command: ["--jetstream", "--store_dir=/data"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats_data:/data
+
   service-provider-manager:
     build:
       context: .
@@ -27,9 +36,11 @@ services:
       DB_USER: admin
       DB_PASS: adminpass
       SVC_ADDRESS: ":8080"
+      NATS_URL: "nats://nats:4222"
     ports:
       - "8080:8080"
     depends_on:
+      nats: { condition: service_started }
       postgres:
         condition: service_healthy
     healthcheck:
@@ -40,3 +51,4 @@ services:
 
 volumes:
   postgres_data:
+  nats_data:

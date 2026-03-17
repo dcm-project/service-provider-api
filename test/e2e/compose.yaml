@@ -15,6 +15,20 @@ services:
       timeout: 5s
       retries: 5
 
+  nats:
+    image: docker.io/library/nats:2-alpine
+    command: ["--jetstream", "--store_dir=/data"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: ["CMD", "nats-server", "--version"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   provider-wiremock:
     image: wiremock/wiremock:3x
     ports:
@@ -37,12 +51,15 @@ services:
       DB_USER: admin
       DB_PASS: adminpass
       SVC_ADDRESS: ":8080"
+      NATS_URL: "nats://nats:4222"
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
       provider-wiremock:
+        condition: service_healthy
+      nats:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1alpha1/health"]
@@ -52,3 +69,4 @@ services:
 
 volumes:
   postgres_data:
+  nats_data:

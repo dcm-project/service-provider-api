@@ -185,6 +185,26 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 		})
 	})
 
+	Describe("UpdateStatus", func() {
+		It("updates status and status message by instance ID", func() {
+			instance := newServiceTypeInstance(kubevirtProvider, "status-inst", map[string]any{"cpu": "2"})
+			addInstanceToStore(instance)
+
+			err := s.UpdateStatus(ctx, instance.ID, "RUNNING", "VM is running")
+			Expect(err).NotTo(HaveOccurred())
+
+			found, err := s.Get(ctx, instance.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(found.Status).To(Equal("RUNNING"))
+			Expect(found.StatusMessage).To(Equal("VM is running"))
+		})
+
+		It("returns ErrInstanceNotFound for non-existent instance", func() {
+			err := s.UpdateStatus(ctx, "non-existent", "RUNNING", "message")
+			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
+		})
+	})
+
 	Describe("ExistsByID", func() {
 		It("returns true when instance exists", func() {
 			instance := newServiceTypeInstance(kubevirtProvider, "exists", map[string]any{})
