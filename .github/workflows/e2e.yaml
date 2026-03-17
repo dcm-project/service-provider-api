@@ -32,7 +32,7 @@ jobs:
 
       - name: Start services
         if: steps.filter.outputs.any_changed == 'true'
-        run: docker compose up -d --build --wait
+        run: docker compose -f test/e2e/compose.yaml up -d --build --wait
 
       - name: Run E2E tests
         if: steps.filter.outputs.any_changed == 'true'
@@ -40,11 +40,11 @@ jobs:
 
       - name: Show logs on failure
         if: failure() && steps.filter.outputs.any_changed == 'true'
-        run: docker compose logs
+        run: docker compose -f test/e2e/compose.yaml logs
 
       - name: Stop services
         if: always() && steps.filter.outputs.any_changed == 'true'
-        run: docker compose down -v
+        run: docker compose -f test/e2e/compose.yaml down -v
 
       - name: Skip
         if: steps.filter.outputs.any_changed == 'false'

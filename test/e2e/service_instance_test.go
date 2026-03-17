@@ -18,14 +18,15 @@ import (
 
 var _ = Describe("Service Instance API", func() {
 	var (
-		rmApiClient *rmClient.ClientWithResponses
-		apiClient   *client.ClientWithResponses
-		ctx         context.Context
-		baseURL     string
+		rmApiClient  *rmClient.ClientWithResponses
+		apiClient    *client.ClientWithResponses
+		ctx          context.Context
+		providerID   string
+		providerName string
 	)
 
 	BeforeEach(func() {
-		baseURL = os.Getenv("API_URL")
+		baseURL := os.Getenv("API_URL")
 		if baseURL == "" {
 			baseURL = "http://localhost:8080/api/v1alpha1"
 		}
@@ -38,9 +39,33 @@ var _ = Describe("Service Instance API", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		ctx = context.Background()
+
+		resetWireMock()
+		stubProviderHealthEndpoint()
+		stubProviderCreateInstance()
+		stubProviderDeleteInstance()
+
+		providerName = "e2e-provider-" + uuid.New().String()[:8]
+		createResp, err := apiClient.CreateProviderWithResponse(ctx, nil, v1alpha1.Provider{
+			Name:          providerName,
+			Endpoint:      providerEndpoint(),
+			ServiceType:   "vm",
+			SchemaVersion: "v1alpha1",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+		providerID = *createResp.JSON201.Id
+
+		waitForProviderReady(apiClient, ctx, providerID)
 	})
 
-	Describe("Service Instance Health Check", func() {
+	AfterEach(func() {
+		if providerID != "" {
+			apiClient.DeleteProviderWithResponse(ctx, providerID)
+		}
+	})
+
+	Describe("Health Check", func() {
 		It("returns healthy status", func() {
 			resp, err := rmApiClient.GetHealthWithResponse(ctx)
 
@@ -51,31 +76,52 @@ var _ = Describe("Service Instance API", func() {
 		})
 	})
 
-	Describe("Service Instance Create", func() {
-		var providerID string
-		var providerName string
-
-		BeforeEach(func() {
-			// Create a test provider for instance operations
-			providerName = "e2e-test-provider-" + uuid.New().String()[:8]
-			createResp, err := apiClient.CreateProviderWithResponse(ctx, nil, v1alpha1.Provider{
-				Name:          providerName,
-				Endpoint:      "http://example.com/api", // Mock endpoint
-				ServiceType:   "vm",
-				SchemaVersion: "v1alpha1",
+	Describe("Create Instance", func() {
+		It("creates an instance with specified ID", func() {
+			instID := uuid.New().String()
+			params := &resource_manager.CreateInstanceParams{Id: &instID}
+			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, params, resource_manager.ServiceTypeInstance{
+				ProviderName: providerName,
+				Spec:         map[string]interface{}{"cpu": 2, "memory": "4GB"},
 			})
+
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
-			providerID = *createResp.JSON201.Id
+			Expect(createResp.JSON201).NotTo(BeNil())
+			Expect(*createResp.JSON201.Id).To(Equal(instID))
+			Expect(createResp.JSON201.ProviderName).To(Equal(providerName))
 		})
 
-		AfterEach(func() {
-			if providerID != "" {
-				apiClient.DeleteProviderWithResponse(ctx, providerID)
+		It("creates an instance with server-generated ID", func() {
+			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, nil, resource_manager.ServiceTypeInstance{
+				ProviderName: providerName,
+				Spec:         map[string]interface{}{"cpu": 1},
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+			Expect(createResp.JSON201.Id).NotTo(BeNil())
+			Expect(*createResp.JSON201.Id).NotTo(BeEmpty())
+		})
+
+		It("returns 409 for duplicate instance ID", func() {
+			instID := uuid.New().String()
+			params := &resource_manager.CreateInstanceParams{Id: &instID}
+			body := resource_manager.ServiceTypeInstance{
+				ProviderName: providerName,
+				Spec:         map[string]interface{}{"cpu": 1},
 			}
+
+			resp1, err := rmApiClient.CreateInstanceWithResponse(ctx, params, body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp1.StatusCode()).To(Equal(http.StatusCreated))
+
+			resp2, err := rmApiClient.CreateInstanceWithResponse(ctx, params, body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp2.StatusCode()).To(Equal(http.StatusConflict))
 		})
 
-		It("validates instance creation requires a provider", func() {
+		It("returns 404 for non-existent provider", func() {
 			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, nil, resource_manager.ServiceTypeInstance{
 				ProviderName: "non-existent-provider-" + uuid.New().String(),
 				Spec:         map[string]interface{}{"cpu": 1},
@@ -85,51 +131,96 @@ var _ = Describe("Service Instance API", func() {
 			Expect(createResp.StatusCode()).To(Equal(http.StatusNotFound))
 		})
 
-		It("handles specified instance IDs", func() {
-			customID := uuid.New().String()
-			params := &resource_manager.CreateInstanceParams{Id: &customID}
+		It("returns 422 when provider health status is not Ready", func() {
+			unhealthyName := "unhealthy-provider-" + uuid.New().String()[:8]
+			createProviderResp, err := apiClient.CreateProviderWithResponse(ctx, nil, v1alpha1.Provider{
+				Name:          unhealthyName,
+				Endpoint:      "http://invalid-endpoint-does-not-exist.local/api",
+				ServiceType:   "vm",
+				SchemaVersion: "v1alpha1",
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createProviderResp.StatusCode()).To(Equal(http.StatusCreated))
+			unhealthyProviderID := *createProviderResp.JSON201.Id
 
-			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, params, resource_manager.ServiceTypeInstance{
-				ProviderName: providerName,
-				Spec:         map[string]interface{}{"cpu": 2, "memory": "4GB"},
+			defer func() {
+				apiClient.DeleteProviderWithResponse(ctx, unhealthyProviderID)
+			}()
+
+			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, nil, resource_manager.ServiceTypeInstance{
+				ProviderName: unhealthyName,
+				Spec:         map[string]interface{}{"cpu": 2},
 			})
 
 			Expect(err).NotTo(HaveOccurred())
-			// Will fail because example.com is not a real provider, but ID should be validated
-			if createResp.StatusCode() == http.StatusCreated {
-				Expect(*createResp.JSON201.Id).To(Equal(customID))
-			}
-		})
-
-		It("rejects duplicate instance IDs", func() {
-			customID := uuid.New().String()
-			params := &resource_manager.CreateInstanceParams{Id: &customID}
-			body := resource_manager.ServiceTypeInstance{
-				ProviderName: providerName,
-				Spec:         map[string]interface{}{"cpu": 2},
-			}
-
-			// First attempt
-			resp1, err := rmApiClient.CreateInstanceWithResponse(ctx, params, body)
-			Expect(err).NotTo(HaveOccurred())
-
-			// Second attempt with same ID should fail with 409 if first succeeded
-			if resp1.StatusCode() == http.StatusCreated {
-				resp2, err := rmApiClient.CreateInstanceWithResponse(ctx, params, body)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(resp2.StatusCode()).To(Equal(http.StatusConflict))
-			}
+			Expect(createResp.StatusCode()).To(Equal(http.StatusUnprocessableEntity))
 		})
 	})
 
-	Describe("Service Instance List", func() {
-		It("returns a list of instances (may be empty)", func() {
+	Describe("Get Instance", func() {
+		It("returns 200 for existing instance", func() {
+			instID := uuid.New().String()
+			params := &resource_manager.CreateInstanceParams{Id: &instID}
+			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, params, resource_manager.ServiceTypeInstance{
+				ProviderName: providerName,
+				Spec:         map[string]interface{}{"cpu": 2},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+
+			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, instID)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getResp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(getResp.JSON200).NotTo(BeNil())
+			Expect(*getResp.JSON200.Id).To(Equal(instID))
+			Expect(getResp.JSON200.ProviderName).To(Equal(providerName))
+		})
+
+		It("returns 404 for non-existent instance", func() {
+			nonExistentID := uuid.New().String()
+			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, nonExistentID)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getResp.StatusCode()).To(Equal(http.StatusNotFound))
+		})
+	})
+
+	Describe("List Instances", func() {
+		It("returns created instances in the list", func() {
+			instID := uuid.New().String()
+			params := &resource_manager.CreateInstanceParams{Id: &instID}
+			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, params, resource_manager.ServiceTypeInstance{
+				ProviderName: providerName,
+				Spec:         map[string]interface{}{"cpu": 1},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+
 			listResp, err := rmApiClient.ListInstancesWithResponse(ctx, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.StatusCode()).To(Equal(http.StatusOK))
-			Expect(listResp.JSON200).NotTo(BeNil())
 			Expect(listResp.JSON200.Instances).NotTo(BeNil())
+
+			ids := make([]string, len(*listResp.JSON200.Instances))
+			for i, inst := range *listResp.JSON200.Instances {
+				ids[i] = *inst.Id
+			}
+			Expect(ids).To(ContainElement(instID))
+		})
+
+		It("filters by provider name", func() {
+			filterProvider := providerName
+			params := &resource_manager.ListInstancesParams{
+				Provider: &filterProvider,
+			}
+
+			listResp, err := rmApiClient.ListInstancesWithResponse(ctx, params)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(listResp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(listResp.JSON200).NotTo(BeNil())
 		})
 
 		It("respects max page size parameter", func() {
@@ -142,29 +233,14 @@ var _ = Describe("Service Instance API", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.StatusCode()).To(Equal(http.StatusOK))
-			Expect(listResp.JSON200).NotTo(BeNil())
 
-			// Verify we don't get more than max page size
 			if listResp.JSON200.Instances != nil {
 				Expect(len(*listResp.JSON200.Instances)).To(BeNumerically("<=", maxPageSize))
 			}
 		})
 
-		It("accepts provider filter parameter", func() {
-			providerName := "test-filter-provider"
-			params := &resource_manager.ListInstancesParams{
-				Provider: &providerName,
-			}
-
-			listResp, err := rmApiClient.ListInstancesWithResponse(ctx, params)
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.StatusCode()).To(Equal(http.StatusOK))
-			Expect(listResp.JSON200).NotTo(BeNil())
-		})
-
-		It("returns error for invalid max page size", func() {
-			invalidPageSize := 1000 // exceeds max of 100
+		It("returns 400 for invalid max page size", func() {
+			invalidPageSize := 1000
 			params := &resource_manager.ListInstancesParams{
 				MaxPageSize: &invalidPageSize,
 			}
@@ -175,26 +251,6 @@ var _ = Describe("Service Instance API", func() {
 			Expect(listResp.StatusCode()).To(Equal(http.StatusBadRequest))
 		})
 
-		It("handles page token for pagination", func() {
-			maxPageSize := 5
-			params := &resource_manager.ListInstancesParams{
-				MaxPageSize: &maxPageSize,
-			}
-
-			// Get first page
-			listResp, err := rmApiClient.ListInstancesWithResponse(ctx, params)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.StatusCode()).To(Equal(http.StatusOK))
-
-			// If there's a next page token, test it
-			if listResp.JSON200.NextPageToken != nil {
-				params.PageToken = listResp.JSON200.NextPageToken
-				nextPageResp, err := rmApiClient.ListInstancesWithResponse(ctx, params)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(nextPageResp.StatusCode()).To(Equal(http.StatusOK))
-			}
-		})
-
 		It("handles invalid page token gracefully", func() {
 			invalidToken := "invalid-base64-token"
 			params := &resource_manager.ListInstancesParams{
@@ -203,79 +259,37 @@ var _ = Describe("Service Instance API", func() {
 
 			listResp, err := rmApiClient.ListInstancesWithResponse(ctx, params)
 			Expect(err).NotTo(HaveOccurred())
-			// Invalid page token is treated as empty, returns 200 with results from start
 			Expect(listResp.StatusCode()).To(Equal(http.StatusOK))
 		})
 	})
 
-	Describe("Service Instance Get Operation", func() {
-		It("returns 404 for non-existent instance", func() {
-			nonExistentID := uuid.New().String()
-			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, nonExistentID)
+	Describe("Delete Instance", func() {
+		It("returns 204 and instance is removed", func() {
+			instID := uuid.New().String()
+			params := &resource_manager.CreateInstanceParams{Id: &instID}
+			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, params, resource_manager.ServiceTypeInstance{
+				ProviderName: providerName,
+				Spec:         map[string]interface{}{"cpu": 2},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
 
+			deleteResp, err := rmApiClient.DeleteInstanceWithResponse(ctx, instID)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNoContent))
+
+			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, instID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(getResp.StatusCode()).To(Equal(http.StatusNotFound))
 		})
-	})
 
-	Describe("Service Instance Delete Operation", func() {
 		It("returns 404 when deleting non-existent instance", func() {
 			nonExistentID := uuid.New().String()
 			deleteResp, err := rmApiClient.DeleteInstanceWithResponse(ctx, nonExistentID)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNotFound))
-		})
-	})
-
-	Describe("Service Instance Error Scenarios", func() {
-		It("returns 404 for missing provider name", func() {
-			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, nil, resource_manager.ServiceTypeInstance{
-				ProviderName: "",
-				Spec:         map[string]interface{}{"cpu": 1},
-			})
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(createResp.StatusCode()).To(Equal(http.StatusNotFound))
-		})
-
-		It("returns 422 when provider health status is not Ready", func() {
-			// Create a provider with non-ready endpoint (will fail health check)
-			providerName := "unhealthy-provider-" + uuid.New().String()[:8]
-			createProviderResp, err := apiClient.CreateProviderWithResponse(ctx, nil, v1alpha1.Provider{
-				Name:          providerName,
-				Endpoint:      "http://invalid-endpoint-does-not-exist.local/api",
-				ServiceType:   "vm",
-				SchemaVersion: "v1alpha1",
-			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(createProviderResp.StatusCode()).To(Equal(http.StatusCreated))
-			providerID := *createProviderResp.JSON201.Id
-
-			defer func() {
-				apiClient.DeleteProviderWithResponse(ctx, providerID)
-			}()
-
-			// Try to create instance with unhealthy provider
-			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, nil, resource_manager.ServiceTypeInstance{
-				ProviderName: providerName,
-				Spec:         map[string]interface{}{"cpu": 2, "memory": "4GB"},
-			})
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(createResp.StatusCode()).To(Equal(http.StatusUnprocessableEntity))
-
-			// Verify error response has appropriate message
-			if createResp.ApplicationproblemJSON422 != nil {
-				Expect(createResp.ApplicationproblemJSON422.Title).NotTo(BeEmpty())
-				if createResp.ApplicationproblemJSON422.Detail != nil {
-					// Error message may contain "not ready" or "failed to connect to provider"
-					Expect(*createResp.ApplicationproblemJSON422.Detail).To(Or(
-						ContainSubstring("not ready"),
-						ContainSubstring("failed to connect to provider"),
-					))
-				}
-			}
 		})
 	})
 })

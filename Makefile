@@ -26,13 +26,15 @@ test-e2e:
 	go run github.com/onsi/ginkgo/v2/ginkgo -r -v --tags=e2e ./test/e2e/...
 
 e2e-up:
-	podman-compose up -d --build
+	podman-compose -f test/e2e/compose.yaml up -d --build
 	@echo "Waiting for services to be healthy..."
+	@until curl -sf http://localhost:9090/__admin/health > /dev/null 2>&1; do sleep 1; done
+	@echo "WireMock ready."
 	@until curl -sf http://localhost:8080/api/v1alpha1/health > /dev/null 2>&1; do sleep 1; done
 	@echo "Services ready."
 
 e2e-down:
-	podman-compose down -v
+	podman-compose -f test/e2e/compose.yaml down -v
 
 test-e2e-full:
 	$(MAKE) e2e-up
