@@ -11,6 +11,7 @@ type Config struct {
 	Database    *DBConfig
 	Service     *ServiceConfig
 	HealthCheck *HealthCheckConfig
+	NATS        *NATSConfig
 }
 
 type HealthCheckConfig struct {
@@ -33,6 +34,14 @@ type DBConfig struct {
 type ServiceConfig struct {
 	Address  string `envconfig:"SVC_ADDRESS" default:":8080"`
 	LogLevel string `envconfig:"SVC_LOG_LEVEL" default:"info"`
+}
+
+// NATSConfig holds NATS messaging configuration
+type NATSConfig struct {
+	URL          string `envconfig:"NATS_URL" default:"nats://localhost:4222"`
+	Subject      string `envconfig:"NATS_STATUS_SUBJECT" default:"dcm.*"`
+	StreamName   string `envconfig:"NATS_STREAM_NAME" default:"dcm-status"`
+	ConsumerName string `envconfig:"NATS_CONSUMER_NAME" default:"service-provider-manager"`
 }
 
 func Load() (*Config, error) {

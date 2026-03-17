@@ -36,6 +36,7 @@ type ServiceTypeInstance interface {
 	Delete(ctx context.Context, id string) error
 	Get(ctx context.Context, id string) (*model.ServiceTypeInstance, error)
 	ExistsByID(ctx context.Context, id string) (bool, error)
+	UpdateStatus(ctx context.Context, instanceID string, status string, statusMessage string) error
 }
 
 type ServiceTypeInstanceStore struct {
@@ -138,6 +139,23 @@ func (s *ServiceTypeInstanceStore) Get(ctx context.Context, id string) (*model.S
 		return nil, err
 	}
 	return &instance, nil
+}
+
+func (s *ServiceTypeInstanceStore) UpdateStatus(ctx context.Context, instanceID string, status string, statusMessage string) error {
+	result := s.db.WithContext(ctx).
+		Model(&model.ServiceTypeInstance{}).
+		Where("id = ?", instanceID).
+		Updates(model.ServiceTypeInstance{
+			Status:        status,
+			StatusMessage: statusMessage,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrInstanceNotFound
+	}
+	return nil
 }
 
 func (s *ServiceTypeInstanceStore) ExistsByID(ctx context.Context, id string) (bool, error) {
