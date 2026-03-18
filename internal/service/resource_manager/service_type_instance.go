@@ -202,7 +202,7 @@ func (s *InstanceService) createInstanceWithProvider(ctx context.Context, endpoi
 		SetContext(ctx).
 		SetHeader("Content-Type", "application/json").
 		SetQueryParam("id", *id).
-		SetBody(request.Spec).
+		SetBody(map[string]interface{}{"spec": request.Spec}).
 		SetResult(&providerResp).
 		Post(endpoint)
 
