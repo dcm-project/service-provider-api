@@ -39,7 +39,7 @@ var _ = Describe("Handler", func() {
 
 	AfterEach(func() {
 		sqlDB, _ := db.DB()
-		sqlDB.Close()
+		_ = sqlDB.Close()
 	})
 
 	Describe("GetHealth", func() {

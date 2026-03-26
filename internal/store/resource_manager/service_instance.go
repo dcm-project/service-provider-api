@@ -1,3 +1,4 @@
+// Package store provides database access for service type instance operations.
 package store
 
 import (
@@ -13,9 +14,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-var (
-	ErrInstanceNotFound = errors.New("service type instance not found")
-)
+var ErrInstanceNotFound = errors.New("service type instance not found")
 
 // ServiceTypeInstanceListOptions contains optional fields for listing instances.
 type ServiceTypeInstanceListOptions struct {

@@ -1,3 +1,4 @@
+// Package service implements business logic for provider management.
 package service
 
 import (

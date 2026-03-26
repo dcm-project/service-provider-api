@@ -35,7 +35,7 @@ var _ = Describe("Provider Store", func() {
 
 	AfterEach(func() {
 		sqlDB, _ := db.DB()
-		sqlDB.Close()
+		_ = sqlDB.Close()
 	})
 
 	Describe("Create", func() {
@@ -63,7 +63,8 @@ var _ = Describe("Provider Store", func() {
 	Describe("Get", func() {
 		It("retrieves by ID", func() {
 			p := newProvider("get-test")
-			providerStore.Create(ctx, p)
+			_, err := providerStore.Create(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
 
 			found, err := providerStore.Get(ctx, p.ID)
 
@@ -81,7 +82,8 @@ var _ = Describe("Provider Store", func() {
 	Describe("GetByName", func() {
 		It("retrieves by name", func() {
 			p := newProvider("named-provider")
-			providerStore.Create(ctx, p)
+			_, err := providerStore.Create(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
 
 			found, err := providerStore.GetByName(ctx, "named-provider")
 
@@ -98,8 +100,10 @@ var _ = Describe("Provider Store", func() {
 
 	Describe("List", func() {
 		It("returns all providers when filter is nil", func() {
-			providerStore.Create(ctx, newProvider("p1"))
-			providerStore.Create(ctx, newProvider("p2"))
+			_, err := providerStore.Create(ctx, newProvider("p1"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = providerStore.Create(ctx, newProvider("p2"))
+			Expect(err).NotTo(HaveOccurred())
 
 			providers, err := providerStore.List(ctx, nil, nil)
 
@@ -110,11 +114,13 @@ var _ = Describe("Provider Store", func() {
 		It("filters by service type", func() {
 			p1 := newProvider("vm-provider")
 			p1.ServiceType = "vm"
-			providerStore.Create(ctx, p1)
+			_, err := providerStore.Create(ctx, p1)
+			Expect(err).NotTo(HaveOccurred())
 
 			p2 := newProvider("container-provider")
 			p2.ServiceType = "container"
-			providerStore.Create(ctx, p2)
+			_, err = providerStore.Create(ctx, p2)
+			Expect(err).NotTo(HaveOccurred())
 
 			vmType := "vm"
 			vms, err := providerStore.List(ctx, &store.ProviderFilter{ServiceType: &vmType}, nil)
@@ -125,8 +131,10 @@ var _ = Describe("Provider Store", func() {
 		})
 
 		It("filters by name", func() {
-			providerStore.Create(ctx, newProvider("find-me"))
-			providerStore.Create(ctx, newProvider("not-me"))
+			_, err := providerStore.Create(ctx, newProvider("find-me"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = providerStore.Create(ctx, newProvider("not-me"))
+			Expect(err).NotTo(HaveOccurred())
 
 			name := "find-me"
 			providers, err := providerStore.List(ctx, &store.ProviderFilter{Name: &name}, nil)
@@ -139,11 +147,13 @@ var _ = Describe("Provider Store", func() {
 		It("filters by both name and service type", func() {
 			p1 := newProvider("vm-one")
 			p1.ServiceType = "vm"
-			providerStore.Create(ctx, p1)
+			_, err := providerStore.Create(ctx, p1)
+			Expect(err).NotTo(HaveOccurred())
 
 			p2 := newProvider("vm-two")
 			p2.ServiceType = "vm"
-			providerStore.Create(ctx, p2)
+			_, err = providerStore.Create(ctx, p2)
+			Expect(err).NotTo(HaveOccurred())
 
 			name := "vm-one"
 			vmType := "vm"
@@ -155,9 +165,12 @@ var _ = Describe("Provider Store", func() {
 		})
 
 		It("respects pagination limit", func() {
-			providerStore.Create(ctx, newProvider("page-p1"))
-			providerStore.Create(ctx, newProvider("page-p2"))
-			providerStore.Create(ctx, newProvider("page-p3"))
+			_, err := providerStore.Create(ctx, newProvider("page-p1"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = providerStore.Create(ctx, newProvider("page-p2"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = providerStore.Create(ctx, newProvider("page-p3"))
+			Expect(err).NotTo(HaveOccurred())
 
 			providers, err := providerStore.List(ctx, nil, &store.Pagination{Limit: 2, Offset: 0})
 
@@ -166,9 +179,12 @@ var _ = Describe("Provider Store", func() {
 		})
 
 		It("respects pagination offset", func() {
-			providerStore.Create(ctx, newProvider("offset-p1"))
-			providerStore.Create(ctx, newProvider("offset-p2"))
-			providerStore.Create(ctx, newProvider("offset-p3"))
+			_, err := providerStore.Create(ctx, newProvider("offset-p1"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = providerStore.Create(ctx, newProvider("offset-p2"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = providerStore.Create(ctx, newProvider("offset-p3"))
+			Expect(err).NotTo(HaveOccurred())
 
 			providers, err := providerStore.List(ctx, nil, &store.Pagination{Limit: 10, Offset: 2})
 
@@ -179,8 +195,10 @@ var _ = Describe("Provider Store", func() {
 
 	Describe("Count", func() {
 		It("returns total count without filter", func() {
-			providerStore.Create(ctx, newProvider("count-p1"))
-			providerStore.Create(ctx, newProvider("count-p2"))
+			_, err := providerStore.Create(ctx, newProvider("count-p1"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = providerStore.Create(ctx, newProvider("count-p2"))
+			Expect(err).NotTo(HaveOccurred())
 
 			count, err := providerStore.Count(ctx, nil)
 
@@ -191,11 +209,13 @@ var _ = Describe("Provider Store", func() {
 		It("returns filtered count", func() {
 			p1 := newProvider("count-vm")
 			p1.ServiceType = "vm"
-			providerStore.Create(ctx, p1)
+			_, err := providerStore.Create(ctx, p1)
+			Expect(err).NotTo(HaveOccurred())
 
 			p2 := newProvider("count-container")
 			p2.ServiceType = "container"
-			providerStore.Create(ctx, p2)
+			_, err = providerStore.Create(ctx, p2)
+			Expect(err).NotTo(HaveOccurred())
 
 			vmType := "vm"
 			count, err := providerStore.Count(ctx, &store.ProviderFilter{ServiceType: &vmType})
@@ -208,9 +228,10 @@ var _ = Describe("Provider Store", func() {
 	Describe("Delete", func() {
 		It("removes the provider", func() {
 			p := newProvider("to-delete")
-			providerStore.Create(ctx, p)
+			_, err := providerStore.Create(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
 
-			err := providerStore.Delete(ctx, p.ID)
+			err = providerStore.Delete(ctx, p.ID)
 
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -225,7 +246,8 @@ var _ = Describe("Provider Store", func() {
 	Describe("Update", func() {
 		It("modifies existing provider", func() {
 			p := newProvider("to-update")
-			providerStore.Create(ctx, p)
+			_, err := providerStore.Create(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
 
 			p.Endpoint = "https://new-endpoint.com"
 			updated, err := providerStore.Update(ctx, p)
@@ -246,7 +268,8 @@ var _ = Describe("Provider Store", func() {
 		It("returns providers with null next_health_check", func() {
 			p := newProvider("null-next-check")
 			p.NextHealthCheck = nil
-			providerStore.Create(ctx, p)
+			_, err := providerStore.Create(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
 
 			now := time.Now()
 			providers, err := providerStore.ListProvidersForHealthCheck(ctx, now)
@@ -260,7 +283,8 @@ var _ = Describe("Provider Store", func() {
 			p := newProvider("past-check")
 			pastTime := time.Now().Add(-1 * time.Hour)
 			p.NextHealthCheck = &pastTime
-			providerStore.Create(ctx, p)
+			_, err := providerStore.Create(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
 
 			now := time.Now()
 			providers, err := providerStore.ListProvidersForHealthCheck(ctx, now)
@@ -274,7 +298,8 @@ var _ = Describe("Provider Store", func() {
 			now := time.Now()
 			p := newProvider("equal-check")
 			p.NextHealthCheck = &now
-			providerStore.Create(ctx, p)
+			_, err := providerStore.Create(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
 
 			providers, err := providerStore.ListProvidersForHealthCheck(ctx, now)
 
@@ -287,7 +312,8 @@ var _ = Describe("Provider Store", func() {
 			p := newProvider("future-check")
 			futureTime := time.Now().Add(1 * time.Hour)
 			p.NextHealthCheck = &futureTime
-			providerStore.Create(ctx, p)
+			_, err := providerStore.Create(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
 
 			now := time.Now()
 			providers, err := providerStore.ListProvidersForHealthCheck(ctx, now)
@@ -300,7 +326,8 @@ var _ = Describe("Provider Store", func() {
 			p := newProvider("not-due")
 			futureTime := time.Now().Add(24 * time.Hour)
 			p.NextHealthCheck = &futureTime
-			providerStore.Create(ctx, p)
+			_, err := providerStore.Create(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
 
 			now := time.Now()
 			providers, err := providerStore.ListProvidersForHealthCheck(ctx, now)
@@ -312,17 +339,20 @@ var _ = Describe("Provider Store", func() {
 		It("returns multiple providers due for health check", func() {
 			p1 := newProvider("due-1")
 			p1.NextHealthCheck = nil
-			providerStore.Create(ctx, p1)
+			_, err := providerStore.Create(ctx, p1)
+			Expect(err).NotTo(HaveOccurred())
 
 			p2 := newProvider("due-2")
 			pastTime := time.Now().Add(-30 * time.Minute)
 			p2.NextHealthCheck = &pastTime
-			providerStore.Create(ctx, p2)
+			_, err = providerStore.Create(ctx, p2)
+			Expect(err).NotTo(HaveOccurred())
 
 			p3 := newProvider("not-due")
 			futureTime := time.Now().Add(1 * time.Hour)
 			p3.NextHealthCheck = &futureTime
-			providerStore.Create(ctx, p3)
+			_, err = providerStore.Create(ctx, p3)
+			Expect(err).NotTo(HaveOccurred())
 
 			now := time.Now()
 			providers, err := providerStore.ListProvidersForHealthCheck(ctx, now)
@@ -335,10 +365,11 @@ var _ = Describe("Provider Store", func() {
 	Describe("UpdateHealthStatus", func() {
 		It("updates health status to not_ready", func() {
 			p := newProvider("health-update")
-			providerStore.Create(ctx, p)
+			_, err := providerStore.Create(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
 
 			nextCheck := time.Now().Add(1 * time.Hour)
-			err := providerStore.UpdateHealthStatus(ctx, p.ID, model.HealthStatusNotReady, 3, nextCheck)
+			err = providerStore.UpdateHealthStatus(ctx, p.ID, model.HealthStatusNotReady, 3, nextCheck)
 
 			Expect(err).NotTo(HaveOccurred())
 
@@ -353,10 +384,11 @@ var _ = Describe("Provider Store", func() {
 			p := newProvider("health-ready")
 			p.HealthStatus = model.HealthStatusNotReady
 			p.ConsecutiveFailures = 5
-			providerStore.Create(ctx, p)
+			_, err := providerStore.Create(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
 
 			nextCheck := time.Now().Add(10 * time.Second)
-			err := providerStore.UpdateHealthStatus(ctx, p.ID, model.HealthStatusReady, 0, nextCheck)
+			err = providerStore.UpdateHealthStatus(ctx, p.ID, model.HealthStatusReady, 0, nextCheck)
 
 			Expect(err).NotTo(HaveOccurred())
 
@@ -368,10 +400,11 @@ var _ = Describe("Provider Store", func() {
 
 		It("updates consecutive failures count", func() {
 			p := newProvider("failure-count")
-			providerStore.Create(ctx, p)
+			_, err := providerStore.Create(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
 
 			nextCheck := time.Now().Add(30 * time.Second)
-			err := providerStore.UpdateHealthStatus(ctx, p.ID, model.HealthStatusReady, 2, nextCheck)
+			err = providerStore.UpdateHealthStatus(ctx, p.ID, model.HealthStatusReady, 2, nextCheck)
 
 			Expect(err).NotTo(HaveOccurred())
 
@@ -382,10 +415,11 @@ var _ = Describe("Provider Store", func() {
 
 		It("updates next health check time", func() {
 			p := newProvider("next-check-update")
-			providerStore.Create(ctx, p)
+			_, err := providerStore.Create(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
 
 			nextCheck := time.Now().Add(5 * time.Minute)
-			err := providerStore.UpdateHealthStatus(ctx, p.ID, model.HealthStatusReady, 0, nextCheck)
+			err = providerStore.UpdateHealthStatus(ctx, p.ID, model.HealthStatusReady, 0, nextCheck)
 
 			Expect(err).NotTo(HaveOccurred())
 

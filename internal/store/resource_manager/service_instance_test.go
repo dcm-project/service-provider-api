@@ -23,9 +23,7 @@ func newServiceTypeInstance(providerName, instanceName string, spec map[string]i
 	}
 }
 
-var (
-	kubevirtProvider = "kubevirt-sp"
-)
+var kubevirtProvider = "kubevirt-sp"
 
 var _ = Describe("ServiceTypeInstance Store", func() {
 	var (
@@ -74,7 +72,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 			// Close DB to simulate transient failure
 			sqlDB, err := db.DB()
 			Expect(err).NotTo(HaveOccurred())
-			sqlDB.Close()
+			_ = sqlDB.Close()
 
 			instance := newServiceTypeInstance(
 				kubevirtProvider,

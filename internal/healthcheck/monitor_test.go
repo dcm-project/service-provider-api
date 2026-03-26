@@ -39,7 +39,7 @@ type healthStatusUpdate struct {
 	NextCheck           time.Time
 }
 
-func (m *mockProviderStore) ListProvidersForHealthCheck(ctx context.Context, now time.Time) (model.ProviderList, error) {
+func (m *mockProviderStore) ListProvidersForHealthCheck(_ context.Context, now time.Time) (model.ProviderList, error) {
 	var result model.ProviderList
 	for _, p := range m.providers {
 		if p.NextHealthCheck == nil || !p.NextHealthCheck.After(now) {
@@ -49,7 +49,7 @@ func (m *mockProviderStore) ListProvidersForHealthCheck(ctx context.Context, now
 	return result, nil
 }
 
-func (m *mockProviderStore) UpdateHealthStatus(ctx context.Context, id string, status model.HealthStatus, consecutiveFailures int, nextCheck time.Time) error {
+func (m *mockProviderStore) UpdateHealthStatus(_ context.Context, id string, status model.HealthStatus, consecutiveFailures int, nextCheck time.Time) error {
 	m.healthStatusUpdates = append(m.healthStatusUpdates, healthStatusUpdate{
 		ID:                  id,
 		Status:              status,
@@ -59,15 +59,15 @@ func (m *mockProviderStore) UpdateHealthStatus(ctx context.Context, id string, s
 	return nil
 }
 
-func (m *mockProviderStore) List(ctx context.Context, filter *store.ProviderFilter, pagination *store.Pagination) (model.ProviderList, error) {
+func (m *mockProviderStore) List(_ context.Context, _ *store.ProviderFilter, _ *store.Pagination) (model.ProviderList, error) {
 	return m.providers, nil
 }
 
-func (m *mockProviderStore) Count(ctx context.Context, filter *store.ProviderFilter) (int64, error) {
+func (m *mockProviderStore) Count(_ context.Context, _ *store.ProviderFilter) (int64, error) {
 	return int64(len(m.providers)), nil
 }
 
-func (m *mockProviderStore) ExistsByID(ctx context.Context, id string) (bool, error) {
+func (m *mockProviderStore) ExistsByID(_ context.Context, id string) (bool, error) {
 	for _, p := range m.providers {
 		if p.ID == id {
 			return true, nil
@@ -76,19 +76,19 @@ func (m *mockProviderStore) ExistsByID(ctx context.Context, id string) (bool, er
 	return false, nil
 }
 
-func (m *mockProviderStore) Create(ctx context.Context, provider model.Provider) (*model.Provider, error) {
+func (m *mockProviderStore) Create(_ context.Context, provider model.Provider) (*model.Provider, error) {
 	return &provider, nil
 }
 
-func (m *mockProviderStore) Delete(ctx context.Context, id string) error {
+func (m *mockProviderStore) Delete(_ context.Context, _ string) error {
 	return nil
 }
 
-func (m *mockProviderStore) Update(ctx context.Context, provider model.Provider) (*model.Provider, error) {
+func (m *mockProviderStore) Update(_ context.Context, provider model.Provider) (*model.Provider, error) {
 	return &provider, nil
 }
 
-func (m *mockProviderStore) Get(ctx context.Context, id string) (*model.Provider, error) {
+func (m *mockProviderStore) Get(_ context.Context, id string) (*model.Provider, error) {
 	for _, p := range m.providers {
 		if p.ID == id {
 			return &p, nil
@@ -97,7 +97,7 @@ func (m *mockProviderStore) Get(ctx context.Context, id string) (*model.Provider
 	return nil, nil
 }
 
-func (m *mockProviderStore) GetByName(ctx context.Context, name string) (*model.Provider, error) {
+func (m *mockProviderStore) GetByName(_ context.Context, name string) (*model.Provider, error) {
 	for _, p := range m.providers {
 		if p.Name == name {
 			return &p, nil
@@ -201,7 +201,7 @@ var _ = Describe("Monitor", func() {
 
 		Context("with an unhealthy provider", func() {
 			It("becomes NotReady after reaching max consecutive failures", func() {
-				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
 				}))
 				defer server.Close()
@@ -229,7 +229,7 @@ var _ = Describe("Monitor", func() {
 			})
 
 			It("stays Ready until reaching max consecutive failures", func() {
-				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
 				}))
 				defer server.Close()
@@ -259,7 +259,7 @@ var _ = Describe("Monitor", func() {
 
 		Context("with a recovered provider", func() {
 			It("resets to Ready with zero consecutive failures", func() {
-				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusOK)
 				}))
 				defer server.Close()
