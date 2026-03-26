@@ -5,11 +5,11 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"log"
 	"strconv"
 	"time"
 
 	"github.com/dcm-project/service-provider-manager/internal/api/server"
+	"github.com/dcm-project/service-provider-manager/internal/logging"
 	"github.com/dcm-project/service-provider-manager/internal/store"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
 	"github.com/google/uuid"
@@ -40,6 +40,9 @@ func NewProviderService(store store.Store) *ProviderService {
 // Returns status "registered" for new providers, "updated" for existing ones.
 // Returns ErrCodeConflict if name exists with different ID or ID exists with different name.
 func (s *ProviderService) RegisterOrUpdateProvider(ctx context.Context, req *server.Provider, queryID *string) (*server.Provider, error) {
+	log := logging.FromContext(ctx)
+	log.Debug("RegisterOrUpdateProvider request received", "name", req.Name, "client_id", queryID)
+
 	requestedID := s.parseProviderID(req.Id, queryID)
 
 	existing, err := s.findExistingByName(ctx, req.Name, requestedID)
@@ -48,6 +51,7 @@ func (s *ProviderService) RegisterOrUpdateProvider(ctx context.Context, req *ser
 	}
 
 	if existing != nil {
+		log.Debug("Existing provider found, updating", "provider_id", existing.ID, "name", req.Name)
 		updated, err := s.updateExistingProvider(ctx, existing, req)
 		if err != nil {
 			return nil, err
@@ -63,10 +67,11 @@ func (s *ProviderService) RegisterOrUpdateProvider(ctx context.Context, req *ser
 	providerModel := ProviderToModel(req, *providerID)
 	created, err := s.store.Provider().Create(ctx, providerModel)
 	if err != nil {
+		log.Error("Failed to create provider in store", "name", req.Name, "error", err)
 		return nil, err
 	}
 
-	log.Printf("Created provider: %s (%s)", created.Name, created.ID)
+	log.Info("Provider created", "provider_id", created.ID, "name", created.Name)
 	return ModelToProviderWithStatus(created, server.Registered), nil
 }
 
@@ -86,15 +91,19 @@ func (s *ProviderService) parseProviderID(bodyID *string, queryID *string) *stri
 // findExistingByName returns the existing provider if name exists and is valid for update.
 // Returns ErrCodeConflict if name exists with a different ID than requested.
 func (s *ProviderService) findExistingByName(ctx context.Context, name string, requestedID *string) (*model.Provider, error) {
+	log := logging.FromContext(ctx)
+
 	existing, err := s.store.Provider().GetByName(ctx, name)
 	if err != nil {
 		if errors.Is(err, store.ErrProviderNotFound) {
 			return nil, nil
 		}
+		log.Error("Failed to look up provider by name", "name", name, "error", err)
 		return nil, err
 	}
 
 	if requestedID != nil && existing.ID != *requestedID {
+		log.Warn("Name conflict detected", "name", name, "existing_id", existing.ID, "requested_id", *requestedID)
 		return nil, &ServiceError{
 			Code:    ErrCodeConflict,
 			Message: fmt.Sprintf("name '%s' already exists with a different provider ID", name),
@@ -106,16 +115,21 @@ func (s *ProviderService) findExistingByName(ctx context.Context, name string, r
 
 // resolveProviderID returns the requested ID after checking for conflicts, or generates a new one.
 func (s *ProviderService) resolveProviderID(ctx context.Context, requestedID *string) (*string, error) {
+	log := logging.FromContext(ctx)
+
 	if requestedID == nil {
 		generatedID := uuid.New().String()
+		log.Debug("Generated provider ID", "provider_id", generatedID)
 		return &generatedID, nil
 	}
 
 	exists, err := s.store.Provider().ExistsByID(ctx, *requestedID)
 	if err != nil {
+		log.Error("Failed to check provider ID existence", "provider_id", *requestedID, "error", err)
 		return nil, err
 	}
 	if exists {
+		log.Warn("Duplicate provider ID", "provider_id", *requestedID)
 		return nil, &ServiceError{
 			Code:    ErrCodeConflict,
 			Message: fmt.Sprintf("provider with ID '%s' already exists", *requestedID),
@@ -126,6 +140,8 @@ func (s *ProviderService) resolveProviderID(ctx context.Context, requestedID *st
 }
 
 func (s *ProviderService) updateExistingProvider(ctx context.Context, existing *model.Provider, req *server.Provider) (*model.Provider, error) {
+	log := logging.FromContext(ctx)
+
 	existing.Name = req.Name
 	existing.ServiceType = req.ServiceType
 	existing.SchemaVersion = req.SchemaVersion
@@ -134,20 +150,25 @@ func (s *ProviderService) updateExistingProvider(ctx context.Context, existing *
 
 	updated, err := s.store.Provider().Update(ctx, *existing)
 	if err != nil {
+		log.Error("Failed to update provider in store", "provider_id", existing.ID, "error", err)
 		return nil, err
 	}
 
-	log.Printf("Updated provider: %s (%s)", updated.Name, updated.ID)
+	log.Info("Provider updated", "provider_id", updated.ID, "name", updated.Name)
 	return updated, nil
 }
 
 // GetProvider retrieves a provider by ID. Returns ErrCodeNotFound if not found.
 func (s *ProviderService) GetProvider(ctx context.Context, providerID string) (*server.Provider, error) {
+	log := logging.FromContext(ctx)
+	log.Debug("Getting provider", "provider_id", providerID)
+
 	provider, err := s.store.Provider().Get(ctx, providerID)
 	if err != nil {
 		if errors.Is(err, store.ErrProviderNotFound) {
 			return nil, &ServiceError{Code: ErrCodeNotFound, Message: fmt.Sprintf("provider %s not found", providerID)}
 		}
+		log.Error("Failed to get provider from store", "provider_id", providerID, "error", err)
 		return nil, err
 	}
 
@@ -156,6 +177,11 @@ func (s *ProviderService) GetProvider(ctx context.Context, providerID string) (*
 
 // ListProviders returns providers with pagination support per AEP-158.
 func (s *ProviderService) ListProviders(ctx context.Context, serviceType string, requestedPageSize int, pageToken string) (*ListResult, error) {
+	log := logging.FromContext(ctx)
+	log.Debug("Listing providers",
+		"service_type", serviceType,
+		"page_size", requestedPageSize,
+	)
 	// Validate and normalize page size per AEP-158
 	pageSize := requestedPageSize
 	if pageSize < 0 {
@@ -187,6 +213,7 @@ func (s *ProviderService) ListProviders(ctx context.Context, serviceType string,
 	// Get total count for next page calculation
 	total, err := s.store.Provider().Count(ctx, filter)
 	if err != nil {
+		log.Error("Failed to count providers", "error", err)
 		return nil, err
 	}
 
@@ -194,6 +221,7 @@ func (s *ProviderService) ListProviders(ctx context.Context, serviceType string,
 	pagination := &store.Pagination{Limit: pageSize, Offset: offset}
 	providers, err := s.store.Provider().List(ctx, filter, pagination)
 	if err != nil {
+		log.Error("Failed to list providers from store", "error", err)
 		return nil, err
 	}
 
@@ -210,6 +238,10 @@ func (s *ProviderService) ListProviders(ctx context.Context, serviceType string,
 		nextPageToken = encodePageToken(nextOffset)
 	}
 
+	log.Debug("Providers listed",
+		"count", len(result),
+		"has_next_page", nextPageToken != "",
+	)
 	return &ListResult{
 		Providers:     result,
 		NextPageToken: nextPageToken,
@@ -231,11 +263,15 @@ func DecodePageToken(token string) (int, error) {
 // UpdateProvider updates an existing provider. Returns ErrCodeNotFound if provider
 // doesn't exist, or ErrCodeConflict if the new name is already taken.
 func (s *ProviderService) UpdateProvider(ctx context.Context, providerID string, update *server.Provider) (*server.Provider, error) {
+	log := logging.FromContext(ctx)
+	log.Debug("Updating provider", "provider_id", providerID)
+
 	existing, err := s.store.Provider().Get(ctx, providerID)
 	if err != nil {
 		if errors.Is(err, store.ErrProviderNotFound) {
 			return nil, &ServiceError{Code: ErrCodeNotFound, Message: fmt.Sprintf("provider %s not found", providerID)}
 		}
+		log.Error("Failed to get provider for update", "provider_id", providerID, "error", err)
 		return nil, err
 	}
 
@@ -243,9 +279,11 @@ func (s *ProviderService) UpdateProvider(ctx context.Context, providerID string,
 	if update.Name != existing.Name {
 		other, err := s.store.Provider().GetByName(ctx, update.Name)
 		if err != nil && !errors.Is(err, store.ErrProviderNotFound) {
+			log.Error("Failed to check name conflict", "provider_id", providerID, "name", update.Name, "error", err)
 			return nil, err
 		}
 		if other != nil && other.ID != providerID {
+			log.Warn("Name conflict during update", "provider_id", providerID, "name", update.Name)
 			return nil, &ServiceError{Code: ErrCodeConflict, Message: fmt.Sprintf("name '%s' is already taken", update.Name)}
 		}
 	}
@@ -260,14 +298,17 @@ func (s *ProviderService) UpdateProvider(ctx context.Context, providerID string,
 
 // DeleteProvider removes a provider by ID. Returns ErrCodeNotFound if not found.
 func (s *ProviderService) DeleteProvider(ctx context.Context, providerID string) error {
+	log := logging.FromContext(ctx)
+	log.Debug("Deleting provider", "provider_id", providerID)
+
 	err := s.store.Provider().Delete(ctx, providerID)
 	if err != nil {
 		if errors.Is(err, store.ErrProviderNotFound) {
 			return &ServiceError{Code: ErrCodeNotFound, Message: fmt.Sprintf("provider %s not found", providerID)}
 		}
+		log.Error("Failed to delete provider from store", "provider_id", providerID, "error", err)
 		return err
 	}
-
-	log.Printf("Deleted provider: %s", providerID)
+	log.Info("Provider deleted", "provider_id", providerID)
 	return nil
 }

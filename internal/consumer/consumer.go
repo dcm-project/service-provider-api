@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2/event"
@@ -40,10 +40,10 @@ func New(natsURL, subject string, st store.Store, opts ...Option) (*StatusConsum
 	conn, err := nats.Connect(natsURL,
 		nats.MaxReconnects(-1),
 		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
-			log.Printf("NATS disconnected: %v", err)
+			slog.Warn("NATS disconnected", "error", err)
 		}),
 		nats.ReconnectHandler(func(_ *nats.Conn) {
-			log.Println("NATS reconnected")
+			slog.Info("NATS reconnected")
 		}),
 	)
 	if err != nil {
@@ -109,7 +109,11 @@ func (c *StatusConsumer) Start(ctx context.Context) error {
 	}
 	c.consumeCtx = cc
 
-	log.Printf("StatusConsumer subscribed to %s (stream=%s, consumer=%s)", c.subject, c.streamName, c.consumerName)
+	slog.Info("StatusConsumer subscribed",
+		"subject", c.subject,
+		"stream", c.streamName,
+		"consumer", c.consumerName,
+	)
 	return nil
 }
 
@@ -119,41 +123,41 @@ func (c *StatusConsumer) Stop() {
 		c.consumeCtx.Stop()
 	}
 	c.conn.Close()
-	log.Println("StatusConsumer stopped")
+	slog.Info("StatusConsumer stopped")
 }
 
 func (c *StatusConsumer) handleMessage(ctx context.Context, msg jetstream.Msg) {
 	var event cloudevents.Event
 	if err := json.Unmarshal(msg.Data(), &event); err != nil {
-		log.Printf("Failed to parse CloudEvent: %v", err)
+		slog.Error("Failed to parse CloudEvent", "error", err)
 		_ = msg.Ack()
 		return
 	}
 
 	var payload StatusEvent
 	if err := json.Unmarshal(event.Data(), &payload); err != nil {
-		log.Printf("Failed to deserialize event payload: %v", err)
+		slog.Error("Failed to deserialize event payload", "error", err)
 		_ = msg.Ack()
 		return
 	}
 
 	if payload.Id == "" {
-		log.Printf("Event missing instance ID, discarding")
+		slog.Warn("Event missing instance ID, discarding")
 		_ = msg.Ack()
 		return
 	}
 
 	if err := c.store.ServiceTypeInstance().UpdateStatus(ctx, payload.Id, payload.Status, payload.Message); err != nil {
 		if errors.Is(err, rmstore.ErrInstanceNotFound) {
-			log.Printf("No instance found for ID %s, skipping status update", payload.Id)
+			slog.Warn("No instance found, skipping status update", "instance_id", payload.Id)
 			_ = msg.Ack()
 			return
 		}
-		log.Printf("Failed to update status for instance %s: %v", payload.Id, err)
+		slog.Error("Failed to update instance status", "instance_id", payload.Id, "error", err)
 		_ = msg.Nak()
 		return
 	}
 
-	log.Printf("Updated instance %s status to %s", payload.Id, payload.Status)
+	slog.Info("Instance status updated", "instance_id", payload.Id, "status", payload.Status)
 	_ = msg.Ack()
 }

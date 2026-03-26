@@ -1,5 +1,7 @@
 package service
 
+import "errors"
+
 // Error codes returned by service operations.
 const (
 	ErrCodeNotFound      = "NOT_FOUND"
@@ -54,4 +56,17 @@ func NewInternalError(message string) *ServiceError {
 		Code:    ErrCodeInternal,
 		Message: message,
 	}
+}
+
+// IsClientError returns true if err is a ServiceError representing a client-side
+// (4xx) problem. If svcErr is non-nil it is populated with the unwrapped error.
+func IsClientError(err error, svcErr **ServiceError) bool {
+	if !errors.As(err, svcErr) {
+		return false
+	}
+	switch (*svcErr).Code {
+	case ErrCodeValidation, ErrCodeNotFound, ErrCodeConflict, ErrCodeProviderError:
+		return true
+	}
+	return false
 }

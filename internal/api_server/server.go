@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/dcm-project/service-provider-manager/internal/api/server"
 	rmserver "github.com/dcm-project/service-provider-manager/internal/api/server/resource_manager"
 	"github.com/dcm-project/service-provider-manager/internal/config"
+	"github.com/dcm-project/service-provider-manager/internal/logging"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
@@ -41,6 +43,8 @@ func New(cfg *config.Config, listener net.Listener, providerHandler server.Stric
 
 func (s *Server) Run(ctx context.Context) error {
 	router := chi.NewRouter()
+	router.Use(middleware.RequestID)
+	router.Use(logging.RequestLogger)
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 
@@ -82,12 +86,16 @@ func (s *Server) Run(ctx context.Context) error {
 		ctxTimeout, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 		defer cancel()
 		srv.SetKeepAlivesEnabled(false)
+		slog.Info("Shutting down server")
 		_ = srv.Shutdown(ctxTimeout)
 	}()
 
+	slog.Info("Starting server", "address", s.listener.Addr().String())
 	if err := srv.Serve(s.listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
+
+	slog.Info("Server stopped")
 	return nil
 }
 
