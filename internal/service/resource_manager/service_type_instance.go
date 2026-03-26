@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/dcm-project/service-provider-manager/api/v1alpha1/resource_manager"
+	"github.com/dcm-project/service-provider-manager/internal/logging"
 	"github.com/dcm-project/service-provider-manager/internal/service"
 	"github.com/dcm-project/service-provider-manager/internal/store"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
@@ -36,18 +36,23 @@ func NewInstanceService(store store.Store) *InstanceService {
 
 // CreateInstance creates a new service type instance
 func (s *InstanceService) CreateInstance(ctx context.Context, request *resource_manager.ServiceTypeInstance, queryID *string) (*resource_manager.ServiceTypeInstance, error) {
-	// Get provider information
+	log := logging.FromContext(ctx)
 	providerName := request.ProviderName
+
+	log.Debug("Creating instance", "provider_name", providerName)
+
 	provider, err := s.store.Provider().GetByName(ctx, providerName)
 	if err != nil {
 		if errors.Is(err, store.ErrProviderNotFound) {
 			return nil, service.NewNotFoundError(fmt.Sprintf("provider '%s' not found", providerName))
 		}
+		log.Error("Failed to retrieve provider", "provider_name", providerName, "error", err)
 		return nil, service.NewInternalError(fmt.Sprintf("failed to retrieve provider: %v", err))
 	}
 
 	// Check Provider if provider is not in ready state
 	if provider.HealthStatus != model.HealthStatusReady {
+		log.Warn("Provider not in ready state", "provider_name", providerName, "health_status", provider.HealthStatus)
 		return nil, service.NewProviderError(fmt.Sprintf("provider '%s' is not in ready state (current status: %s)", providerName, provider.HealthStatus))
 	}
 
@@ -60,9 +65,9 @@ func (s *InstanceService) CreateInstance(ctx context.Context, request *resource_
 	// Send request to provider endpoint with the resolved ID
 	providerResponse, err := s.createInstanceWithProvider(ctx, provider.Endpoint, request, instanceID)
 	if err != nil {
+		log.Error("Provider provisioning failed", "instance_id", *instanceID, "provider_name", providerName, "error", err)
 		return nil, service.NewProviderError(fmt.Sprintf("Error from Provider (%s): %v", providerName, err))
 	}
-	log.Printf("Created instance: %s for provider: %s", providerResponse.ID, providerName)
 
 	// Create instance in database
 	instance := model.ServiceTypeInstance{
@@ -74,22 +79,29 @@ func (s *InstanceService) CreateInstance(ctx context.Context, request *resource_
 
 	created, err := s.store.ServiceTypeInstance().Create(ctx, instance)
 	if err != nil {
+		log.Error("Failed to create instance in store", "instance_id", *instanceID, "error", err)
 		return nil, service.NewInternalError(fmt.Sprintf("failed to create database record for instance %s: %v", providerResponse.ID, err))
 	}
 
-	log.Printf("Inserted instance into DB: %s", created.ID)
-
-	// Return the created instance
+	log.Info("Instance created successfully",
+		"instance_id", created.ID,
+		"provider_name", providerName,
+		"status", providerResponse.Status,
+	)
 	return ModelToAPI(created), nil
 }
 
 // GetInstance retrieves an instance by ID
 func (s *InstanceService) GetInstance(ctx context.Context, instanceID string) (*resource_manager.ServiceTypeInstance, error) {
+	log := logging.FromContext(ctx)
+	log.Debug("Getting instance", "instance_id", instanceID)
+
 	instance, err := s.store.ServiceTypeInstance().Get(ctx, instanceID)
 	if err != nil {
 		if errors.Is(err, rmstore.ErrInstanceNotFound) {
 			return nil, service.NewNotFoundError(fmt.Sprintf("instance %s not found", instanceID))
 		}
+		log.Error("Failed to get instance from store", "instance_id", instanceID, "error", err)
 		return nil, service.NewInternalError(fmt.Sprintf("failed to retrieve instance: %v", err))
 	}
 
@@ -98,6 +110,12 @@ func (s *InstanceService) GetInstance(ctx context.Context, instanceID string) (*
 
 // ListInstances returns instances with optional filtering and pagination
 func (s *InstanceService) ListInstances(ctx context.Context, providerName *string, maxPageSize *int, pageToken *string) (*resource_manager.ServiceTypeInstanceList, error) {
+	log := logging.FromContext(ctx)
+	log.Debug("Listing instances",
+		"provider_filter", providerName,
+		"page_size", maxPageSize,
+	)
+
 	opts := &rmstore.ServiceTypeInstanceListOptions{
 		ProviderName: providerName,
 	}
@@ -118,6 +136,7 @@ func (s *InstanceService) ListInstances(ctx context.Context, providerName *strin
 
 	result, err := s.store.ServiceTypeInstance().List(ctx, opts)
 	if err != nil {
+		log.Error("Failed to list instances from store", "error", err)
 		return nil, service.NewInternalError(fmt.Sprintf("failed to list instances: %v", err))
 	}
 
@@ -127,6 +146,10 @@ func (s *InstanceService) ListInstances(ctx context.Context, providerName *strin
 		apiInstances[i] = *ModelToAPI(&inst)
 	}
 
+	log.Debug("Instances listed",
+		"count", len(apiInstances),
+		"has_next_page", result.NextPageToken != nil,
+	)
 	apiResult := &resource_manager.ServiceTypeInstanceList{
 		Instances:     &apiInstances,
 		NextPageToken: result.NextPageToken,
@@ -137,46 +160,56 @@ func (s *InstanceService) ListInstances(ctx context.Context, providerName *strin
 
 // DeleteInstance removes an instance by ID
 func (s *InstanceService) DeleteInstance(ctx context.Context, instanceID string) error {
-	// Get instance to find provider
+	log := logging.FromContext(ctx)
+	log.Debug("Deleting instance", "instance_id", instanceID)
+
 	instance, err := s.store.ServiceTypeInstance().Get(ctx, instanceID)
 	if err != nil {
 		if errors.Is(err, rmstore.ErrInstanceNotFound) {
 			return service.NewNotFoundError(fmt.Sprintf("instance %s not found", instanceID))
 		}
+		log.Error("Failed to get instance for deletion", "instance_id", instanceID, "error", err)
 		return service.NewInternalError(fmt.Sprintf("failed to retrieve instance: %v", err))
 	}
 
 	// Get provider to send delete request
 	provider, err := s.store.Provider().GetByName(ctx, instance.ProviderName)
 	if err != nil && !errors.Is(err, store.ErrProviderNotFound) {
+		log.Error("Failed to retrieve provider for deletion", "instance_id", instanceID, "provider_name", instance.ProviderName, "error", err)
 		return service.NewInternalError(fmt.Sprintf("failed to retrieve provider: %v", err))
 	}
 
 	// Send delete request to provider if provider still exists
 	if provider != nil {
+		log.Debug("Deleting instance from provider", "instance_id", instanceID, "provider_name", provider.Name)
 		err = s.deleteInstanceWithProvider(ctx, provider.Endpoint, instanceID)
 		if err != nil {
-			log.Printf("Error: failed to delete instance (%s) from provider (%s): %v", instanceID, provider.Name, err)
+			log.Error("Provider deletion failed", "instance_id", instanceID, "provider_name", provider.Name, "error", err)
 			return service.NewProviderError(fmt.Sprintf("failed to delete instance (%s): %v", instanceID, err))
 		}
-		log.Printf("Deleted instance (%s) from SP (%s)", instanceID, provider.Name)
 	}
 
 	// Delete from database
 	err = s.store.ServiceTypeInstance().Delete(ctx, instanceID)
 	if err != nil {
+		log.Error("Failed to delete instance from store", "instance_id", instanceID, "error", err)
 		return service.NewInternalError(fmt.Sprintf("failed to delete database record for instance %s: %v", instanceID, err))
 	}
 
-	log.Printf("Deleted instance from DB record: %s", instanceID)
+	log.Info("Instance deleted successfully",
+		"instance_id", instanceID,
+		"provider_name", instance.ProviderName,
+	)
 	return nil
 }
 
 // resolveInstanceID returns the requested ID after checking for conflicts, or generates a new one
 func (s *InstanceService) resolveInstanceID(ctx context.Context, queryID *string) (*string, error) {
+	log := logging.FromContext(ctx)
 
 	if queryID == nil || *queryID == "" {
 		generatedId := uuid.New().String()
+		log.Debug("Generated instance ID", "instance_id", generatedId)
 		return &generatedId, nil
 	}
 
@@ -184,9 +217,11 @@ func (s *InstanceService) resolveInstanceID(ctx context.Context, queryID *string
 
 	exists, err := s.store.ServiceTypeInstance().ExistsByID(ctx, requestedID)
 	if err != nil {
+		log.Error("Failed to check instance ID existence", "instance_id", requestedID, "error", err)
 		return nil, service.NewInternalError(fmt.Sprintf("failed to check instance existence: %v", err))
 	}
 	if exists {
+		log.Warn("Duplicate instance ID", "instance_id", requestedID)
 		return nil, service.NewConflictError(fmt.Sprintf("instance with ID '%s' already exists", requestedID))
 	}
 
@@ -195,6 +230,7 @@ func (s *InstanceService) resolveInstanceID(ctx context.Context, queryID *string
 
 // createInstanceWithProvider sends the create request to the provider's endpoint
 func (s *InstanceService) createInstanceWithProvider(ctx context.Context, endpoint string, request *resource_manager.ServiceTypeInstance, id *string) (*ProviderResponse, error) {
+	log := logging.FromContext(ctx)
 
 	var providerResp ProviderResponse
 
@@ -207,10 +243,12 @@ func (s *InstanceService) createInstanceWithProvider(ctx context.Context, endpoi
 		Post(endpoint)
 
 	if err != nil {
+		log.Error("Failed to connect to provider", "endpoint", endpoint, "error", err)
 		return nil, service.NewProviderError(fmt.Sprintf("failed to connect to provider: %v", err))
 	}
 
 	if resp.IsError() {
+		log.Error("Provider returned error", "endpoint", endpoint, "status", resp.Status())
 		return nil, service.NewProviderError(fmt.Sprintf("provider returned error: %s", resp.Status()))
 	}
 
@@ -219,15 +257,19 @@ func (s *InstanceService) createInstanceWithProvider(ctx context.Context, endpoi
 
 // deleteInstanceWithProvider sends the delete request to the provider's endpoint
 func (s *InstanceService) deleteInstanceWithProvider(ctx context.Context, endpoint string, instanceID string) error {
+	log := logging.FromContext(ctx)
+
 	resp, err := s.httpClient.R().
 		SetContext(ctx).
 		Delete(fmt.Sprintf("%s/%s", endpoint, instanceID))
 
 	if err != nil {
+		log.Error("Failed to connect to provider for deletion", "endpoint", endpoint, "instance_id", instanceID, "error", err)
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 
 	if resp.IsError() && resp.StatusCode() != 404 {
+		log.Error("Provider returned error on deletion", "endpoint", endpoint, "instance_id", instanceID, "status", resp.Status())
 		return fmt.Errorf("provider returned error: %s", resp.Status())
 	}
 

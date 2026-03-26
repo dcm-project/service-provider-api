@@ -2,7 +2,7 @@ package healthcheck
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"math"
 	"net/http"
 	"strings"
@@ -79,7 +79,7 @@ func (m *Monitor) CheckProviders(ctx context.Context) {
 	now := time.Now()
 	providers, err := m.store.ListProvidersForHealthCheck(ctx, now)
 	if err != nil {
-		log.Printf("Error listing providers for health check: %v", err)
+		slog.Error("Error listing providers for health check", "error", err)
 		return
 	}
 
@@ -110,12 +110,16 @@ func (m *Monitor) checkProvider(ctx context.Context, provider model.Provider) {
 
 	nextCheck := m.CalculateNextCheckTime(now, newStatus, consecutiveFailures)
 	if err := m.store.UpdateHealthStatus(ctx, provider.ID, newStatus, consecutiveFailures, nextCheck); err != nil {
-		log.Printf("Error updating health status for provider %s: %v", provider.Name, err)
+		slog.Error("Error updating health status", "provider", provider.Name, "error", err)
 		return
 	}
 
 	if provider.HealthStatus != newStatus {
-		log.Printf("Provider %s health status changed: %s -> %s", provider.Name, provider.HealthStatus, newStatus)
+		slog.Info("Provider health status changed",
+			"provider", provider.Name,
+			"old_status", provider.HealthStatus,
+			"new_status", newStatus,
+		)
 	}
 }
 
@@ -123,13 +127,13 @@ func (m *Monitor) performHealthCheck(ctx context.Context, provider model.Provide
 	healthURL := strings.TrimRight(provider.Endpoint, "/") + "/health"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
 	if err != nil {
-		log.Printf("Error creating health check request for provider %s: %v", provider.Name, err)
+		slog.Error("Error creating health check request", "provider", provider.Name, "error", err)
 		return false
 	}
 
 	resp, err := m.httpClient.Do(req)
 	if err != nil {
-		log.Printf("Health check failed for provider %s: %v", provider.Name, err)
+		slog.Debug("Health check failed", "provider", provider.Name, "error", err)
 		return false
 	}
 	defer resp.Body.Close()
@@ -138,7 +142,7 @@ func (m *Monitor) performHealthCheck(ctx context.Context, provider model.Provide
 		return true
 	}
 
-	log.Printf("Health check failed for provider %s: status code %d", provider.Name, resp.StatusCode)
+	slog.Debug("Health check failed", "provider", provider.Name, "status_code", resp.StatusCode)
 	return false
 }
 

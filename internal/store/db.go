@@ -2,7 +2,8 @@ package store
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/dcm-project/service-provider-manager/internal/config"
@@ -29,11 +30,17 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		dialector = sqlite.Open(cfg.Database.Name)
 	}
 
+	logLevel := "info"
+	if cfg.Service != nil {
+		logLevel = cfg.Service.LogLevel
+	}
+	gormLogLevel, slogBridgeLevel := gormLogLevelFromString(logLevel)
+
 	gormLogger := logger.New(
-		log.Default(),
+		slog.NewLogLogger(slog.Default().Handler(), slogBridgeLevel),
 		logger.Config{
 			SlowThreshold:             time.Second,
-			LogLevel:                  logger.Warn,
+			LogLevel:                  gormLogLevel,
 			IgnoreRecordNotFoundError: true,
 			Colorful:                  false,
 		},
@@ -53,11 +60,31 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	}
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	// Auto-migrate schema
+	slog.Info("Database connection established", "type", cfg.Database.Type)
+
 	if err := db.AutoMigrate(&model.Provider{}, &model.ServiceTypeInstance{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
+	slog.Info("Database schema migrated")
+
 	return db, nil
+}
+
+// gormLogLevelFromString maps the application log level string to GORM and slog levels.
+func gormLogLevelFromString(level string) (logger.LogLevel, slog.Level) {
+	switch strings.ToLower(level) {
+	case "debug":
+		return logger.Info, slog.LevelDebug
+	case "info":
+		return logger.Warn, slog.LevelWarn
+	case "warn", "warning":
+		return logger.Warn, slog.LevelWarn
+	case "error":
+		return logger.Error, slog.LevelError
+	default:
+		return logger.Warn, slog.LevelWarn
+	}
 }
