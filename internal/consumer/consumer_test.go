@@ -20,6 +20,16 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+type statusConsumerTestBG struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+}
+
+// startStatusConsumerTestContext keeps context.WithCancel out of BeforeEach (fatcontext).
+func startStatusConsumerTestContext(bg *statusConsumerTestBG) {
+	bg.ctx, bg.cancel = context.WithCancel(context.Background())
+}
+
 var _ = Describe("StatusConsumer", func() {
 	var (
 		db        *gorm.DB
@@ -27,8 +37,7 @@ var _ = Describe("StatusConsumer", func() {
 		nc        *nats.Conn
 		js        jetstream.JetStream
 		sc        *consumer.StatusConsumer
-		ctx       context.Context
-		cancel    context.CancelFunc
+		bg        statusConsumerTestBG
 		natsURL   string
 		streamID  string
 	)
@@ -66,15 +75,15 @@ var _ = Describe("StatusConsumer", func() {
 		)
 		Expect(err).NotTo(HaveOccurred())
 
-		ctx, cancel = context.WithCancel(context.Background())
-		Expect(sc.Start(ctx)).To(Succeed())
+		startStatusConsumerTestContext(&bg)
+		Expect(sc.Start(bg.ctx)).To(Succeed())
 	})
 
 	AfterEach(func() {
 		sc.Stop()
 		_ = js.DeleteStream(context.Background(), "test-stream-"+streamID)
 		nc.Close()
-		cancel()
+		bg.cancel()
 		sqlDB, _ := db.DB()
 		_ = sqlDB.Close()
 	})
@@ -98,7 +107,7 @@ var _ = Describe("StatusConsumer", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		subject := fmt.Sprintf("dcm.%s", serviceType)
-		_, err = js.Publish(ctx, subject, data)
+		_, err = js.Publish(bg.ctx, subject, data)
 		Expect(err).NotTo(HaveOccurred())
 	}
 
@@ -110,7 +119,7 @@ var _ = Describe("StatusConsumer", func() {
 			InstanceName: "test-instance",
 			Spec:         map[string]any{"cpu": "2"},
 		}
-		_, err := dataStore.ServiceTypeInstance().Create(ctx, instance)
+		_, err := dataStore.ServiceTypeInstance().Create(bg.ctx, instance)
 		Expect(err).NotTo(HaveOccurred())
 	}
 
@@ -148,7 +157,7 @@ var _ = Describe("StatusConsumer", func() {
 	})
 
 	It("discards malformed CloudEvent messages", func() {
-		_, err := js.Publish(ctx, "dcm.vm", []byte("not-valid-json"))
+		_, err := js.Publish(bg.ctx, "dcm.vm", []byte("not-valid-json"))
 		Expect(err).NotTo(HaveOccurred())
 
 		// Give it time to process - no panic expected

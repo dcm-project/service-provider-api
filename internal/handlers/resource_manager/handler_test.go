@@ -38,11 +38,11 @@ var _ = Describe("Resource Manager Handler", func() {
 
 		// Create a mock provider server
 		providerCalled = false
-		mockProvider = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mockProvider = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			providerCalled = true
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"id":     uuid.New().String(),
 				"status": "PROVISIONING",
 			})
@@ -66,7 +66,7 @@ var _ = Describe("Resource Manager Handler", func() {
 	AfterEach(func() {
 		mockProvider.Close()
 		sqlDB, _ := db.DB()
-		sqlDB.Close()
+		_ = sqlDB.Close()
 	})
 
 	Describe("GetHealth", func() {

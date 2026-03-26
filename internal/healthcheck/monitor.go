@@ -1,3 +1,4 @@
+// Package healthcheck performs periodic health checks on registered service providers.
 package healthcheck
 
 import (
@@ -136,7 +137,7 @@ func (m *Monitor) performHealthCheck(ctx context.Context, provider model.Provide
 		slog.Debug("Health check failed", "provider", provider.Name, "error", err)
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return true

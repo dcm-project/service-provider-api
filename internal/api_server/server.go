@@ -1,3 +1,4 @@
+// Package apiserver configures and runs the HTTP server and router.
 package apiserver
 
 import (

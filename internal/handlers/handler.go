@@ -1,3 +1,4 @@
+// Package handlers implements HTTP handlers for the Provider API.
 package handlers
 
 import (
@@ -21,7 +22,7 @@ func NewHandler(providerService *service.ProviderService) *Handler {
 // Ensure Handler implements StrictServerInterface
 var _ server.StrictServerInterface = (*Handler)(nil)
 
-func (h *Handler) GetHealth(ctx context.Context, request server.GetHealthRequestObject) (server.GetHealthResponseObject, error) {
+func (h *Handler) GetHealth(_ context.Context, _ server.GetHealthRequestObject) (server.GetHealthResponseObject, error) {
 	status := "ok"
 	path := "health"
 	return server.GetHealth200JSONResponse{Status: &status, Path: &path}, nil

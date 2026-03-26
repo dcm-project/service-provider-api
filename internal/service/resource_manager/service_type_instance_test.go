@@ -51,7 +51,7 @@ var _ = Describe("InstanceService", func() {
 			providerCalled = true
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"id":     uuid.New().String(),
 				"status": "PROVISIONING",
 			})
@@ -74,7 +74,7 @@ var _ = Describe("InstanceService", func() {
 
 	AfterEach(func() {
 		mockProvider.Close()
-		dataStore.Close()
+		_ = dataStore.Close()
 	})
 
 	Describe("CreateInstance", func() {
@@ -194,9 +194,9 @@ var _ = Describe("InstanceService", func() {
 
 		It("returns provider error when provider responds with 4xx HTTP error", func() {
 			// Create a mock server that returns 400
-			mockProvider4xx := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mockProvider4xx := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte(`{"error": "bad request"}`))
+				_, _ = w.Write([]byte(`{"error": "bad request"}`))
 			}))
 			defer mockProvider4xx.Close()
 
@@ -226,9 +226,9 @@ var _ = Describe("InstanceService", func() {
 
 		It("returns provider error when provider responds with 5xx HTTP error", func() {
 			// Create a mock server that returns 500
-			mockProvider5xx := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mockProvider5xx := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(`{"error": "internal server error"}`))
+				_, _ = w.Write([]byte(`{"error": "internal server error"}`))
 			}))
 			defer mockProvider5xx.Close()
 
@@ -259,18 +259,18 @@ var _ = Describe("InstanceService", func() {
 		It("returns internal error with instance ID when DB insert fails", func() {
 			var instanceID string
 			var providerCallCount int
-			mockProviderWithID := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mockProviderWithID := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				providerCallCount++
 				instanceID = uuid.New().String()
 
 				if providerCallCount == 1 {
 					sqlDB, _ := db.DB()
-					sqlDB.Close()
+					_ = sqlDB.Close()
 				}
 
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]string{
+				_ = json.NewEncoder(w).Encode(map[string]string{
 					"id":     instanceID,
 					"status": "PROVISIONING",
 				})

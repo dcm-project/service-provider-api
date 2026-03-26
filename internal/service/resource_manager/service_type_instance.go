@@ -1,3 +1,4 @@
+// Package resource_manager implements business logic for service type instance management.
 package resource_manager
 
 import (
@@ -241,7 +242,6 @@ func (s *InstanceService) createInstanceWithProvider(ctx context.Context, endpoi
 		SetBody(map[string]interface{}{"spec": request.Spec}).
 		SetResult(&providerResp).
 		Post(endpoint)
-
 	if err != nil {
 		log.Error("Failed to connect to provider", "endpoint", endpoint, "error", err)
 		return nil, service.NewProviderError(fmt.Sprintf("failed to connect to provider: %v", err))
@@ -262,7 +262,6 @@ func (s *InstanceService) deleteInstanceWithProvider(ctx context.Context, endpoi
 	resp, err := s.httpClient.R().
 		SetContext(ctx).
 		Delete(fmt.Sprintf("%s/%s", endpoint, instanceID))
-
 	if err != nil {
 		log.Error("Failed to connect to provider for deletion", "endpoint", endpoint, "instance_id", instanceID, "error", err)
 		return fmt.Errorf("failed to connect to provider: %w", err)

@@ -1,3 +1,4 @@
+// Package store provides database access interfaces and implementations.
 package store
 
 import (

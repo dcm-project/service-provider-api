@@ -1,3 +1,4 @@
+// Package consumer subscribes to NATS JetStream status events.
 package consumer
 
 import (

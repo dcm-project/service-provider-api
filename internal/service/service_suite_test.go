@@ -11,4 +11,3 @@ func TestService(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Service Suite")
 }
-
