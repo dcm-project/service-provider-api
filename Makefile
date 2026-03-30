@@ -17,6 +17,9 @@ fmt:
 vet:
 	go vet ./...
 
+lint:
+	golangci-lint run ./...
+
 test:
 	go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-all --fail-on-pending --skip-package=e2e
 
