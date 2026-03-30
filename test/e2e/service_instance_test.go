@@ -168,7 +168,7 @@ var _ = Describe("Service Instance API", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
 
-			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, instID)
+			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, instID, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(getResp.StatusCode()).To(Equal(http.StatusOK))
@@ -179,7 +179,7 @@ var _ = Describe("Service Instance API", func() {
 
 		It("returns 404 for non-existent instance", func() {
 			nonExistentID := uuid.New().String()
-			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, nonExistentID)
+			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, nonExistentID, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(getResp.StatusCode()).To(Equal(http.StatusNotFound))
@@ -274,22 +274,181 @@ var _ = Describe("Service Instance API", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
 
-			deleteResp, err := rmApiClient.DeleteInstanceWithResponse(ctx, instID)
+			deleteResp, err := rmApiClient.DeleteInstanceWithResponse(ctx, instID, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNoContent))
 
-			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, instID)
+			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, instID, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(getResp.StatusCode()).To(Equal(http.StatusNotFound))
 		})
 
 		It("returns 404 when deleting non-existent instance", func() {
 			nonExistentID := uuid.New().String()
-			deleteResp, err := rmApiClient.DeleteInstanceWithResponse(ctx, nonExistentID)
+			deleteResp, err := rmApiClient.DeleteInstanceWithResponse(ctx, nonExistentID, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNotFound))
+		})
+	})
+
+	Describe("Deferred Deletion", func() {
+		var instID string
+
+		createInstance := func() {
+			instID = uuid.New().String()
+			params := &resource_manager.CreateInstanceParams{Id: &instID}
+			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, params, resource_manager.ServiceTypeInstance{
+				ProviderName: providerName,
+				Spec:         map[string]interface{}{"cpu": 2},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+		}
+
+		It("returns error on non-deferred delete when SP fails", func() {
+			createInstance()
+			clearDeleteStubAndStubFailure()
+
+			deleteResp, err := rmApiClient.DeleteInstanceWithResponse(ctx, instID, nil)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteResp.StatusCode()).To(Equal(http.StatusInternalServerError))
+
+			// Instance should still be active
+			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, instID, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getResp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(getResp.JSON200.DeletionStatus).To(BeNil())
+		})
+
+		It("returns 204 on deferred delete when SP fails and marks instance PENDING", func() {
+			createInstance()
+			clearDeleteStubAndStubFailure()
+
+			deferred := true
+			deleteResp, err := rmApiClient.DeleteInstanceWithResponse(ctx, instID, &resource_manager.DeleteInstanceParams{
+				Deferred: &deferred,
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNoContent))
+
+			// Instance should be hidden from default GET
+			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, instID, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getResp.StatusCode()).To(Equal(http.StatusNotFound))
+
+			// Instance should be visible with show_deleted=true
+			showDeleted := true
+			getResp, err = rmApiClient.GetInstanceWithResponse(ctx, instID, &resource_manager.GetInstanceParams{
+				ShowDeleted: &showDeleted,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getResp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(getResp.JSON200.DeletionStatus).NotTo(BeNil())
+			Expect(*getResp.JSON200.DeletionStatus).To(Equal(resource_manager.PENDING))
+		})
+
+		It("hard-deletes on deferred delete when SP succeeds", func() {
+			createInstance()
+
+			deferred := true
+			deleteResp, err := rmApiClient.DeleteInstanceWithResponse(ctx, instID, &resource_manager.DeleteInstanceParams{
+				Deferred: &deferred,
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNoContent))
+
+			// Instance should be fully removed, not even visible with show_deleted
+			showDeleted := true
+			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, instID, &resource_manager.GetInstanceParams{
+				ShowDeleted: &showDeleted,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getResp.StatusCode()).To(Equal(http.StatusNotFound))
+		})
+
+		It("excludes soft-deleted instances from default LIST", func() {
+			createInstance()
+			clearDeleteStubAndStubFailure()
+
+			deferred := true
+			deleteResp, err := rmApiClient.DeleteInstanceWithResponse(ctx, instID, &resource_manager.DeleteInstanceParams{
+				Deferred: &deferred,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNoContent))
+
+			// Default LIST should not include the soft-deleted instance
+			listResp, err := rmApiClient.ListInstancesWithResponse(ctx, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(listResp.StatusCode()).To(Equal(http.StatusOK))
+
+			if listResp.JSON200.Instances != nil {
+				for _, inst := range *listResp.JSON200.Instances {
+					Expect(*inst.Id).NotTo(Equal(instID))
+				}
+			}
+		})
+
+		It("includes soft-deleted instances in LIST with show_deleted=true", func() {
+			createInstance()
+			clearDeleteStubAndStubFailure()
+
+			deferred := true
+			deleteResp, err := rmApiClient.DeleteInstanceWithResponse(ctx, instID, &resource_manager.DeleteInstanceParams{
+				Deferred: &deferred,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNoContent))
+
+			// LIST with show_deleted=true should include the soft-deleted instance
+			showDeleted := true
+			listResp, err := rmApiClient.ListInstancesWithResponse(ctx, &resource_manager.ListInstancesParams{
+				ShowDeleted: &showDeleted,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(listResp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(listResp.JSON200.Instances).NotTo(BeNil())
+
+			ids := make([]string, len(*listResp.JSON200.Instances))
+			for i, inst := range *listResp.JSON200.Instances {
+				ids[i] = *inst.Id
+			}
+			Expect(ids).To(ContainElement(instID))
+		})
+
+		It("can re-delete a soft-deleted instance when SP becomes available", func() {
+			createInstance()
+			clearDeleteStubAndStubFailure()
+
+			// First delete: deferred, SP fails -> mark PENDING
+			deferred := true
+			deleteResp, err := rmApiClient.DeleteInstanceWithResponse(ctx, instID, &resource_manager.DeleteInstanceParams{
+				Deferred: &deferred,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNoContent))
+
+			// Restore SP delete stub to succeed
+			resetDeleteStubs()
+			stubProviderDeleteInstance()
+
+			// Second delete: should hard-delete the PENDING instance
+			deleteResp, err = rmApiClient.DeleteInstanceWithResponse(ctx, instID, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNoContent))
+
+			// Instance should be fully gone
+			showDeleted := true
+			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, instID, &resource_manager.GetInstanceParams{
+				ShowDeleted: &showDeleted,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getResp.StatusCode()).To(Equal(http.StatusNotFound))
 		})
 	})
 })

@@ -19,6 +19,7 @@ var ErrInstanceNotFound = errors.New("service type instance not found")
 // ServiceTypeInstanceListOptions contains optional fields for listing instances.
 type ServiceTypeInstanceListOptions struct {
 	ProviderName *string
+	ShowDeleted  bool
 	PageSize     int
 	PageToken    *string
 }
@@ -29,13 +30,18 @@ type ServiceTypeInstanceListResult struct {
 	NextPageToken *string
 }
 
-type ServiceTypeInstance interface {
+type ServiceTypeInstance interface { //nolint:interfacebloat
 	List(ctx context.Context, opts *ServiceTypeInstanceListOptions) (*ServiceTypeInstanceListResult, error)
 	Create(ctx context.Context, instance model.ServiceTypeInstance) (*model.ServiceTypeInstance, error)
-	Delete(ctx context.Context, id string) error
-	Get(ctx context.Context, id string) (*model.ServiceTypeInstance, error)
+	Get(ctx context.Context, id string, showDeleted bool) (*model.ServiceTypeInstance, error)
 	ExistsByID(ctx context.Context, id string) (bool, error)
 	UpdateStatus(ctx context.Context, instanceID string, status string, statusMessage string) error
+	MarkForDeletion(ctx context.Context, id string) error
+	ListPendingDeletions(ctx context.Context) ([]model.ServiceTypeInstance, error)
+	IncrementDeletionRetry(ctx context.Context, id string) error
+	MarkDeletionFailed(ctx context.Context, id string) error
+	HardDelete(ctx context.Context, id string) error
+	ResetRetryCount(ctx context.Context, id string) error
 }
 
 type ServiceTypeInstanceStore struct {
@@ -72,6 +78,11 @@ func (s *ServiceTypeInstanceStore) List(ctx context.Context, opts *ServiceTypeIn
 	// Apply filters
 	if opts != nil && opts.ProviderName != nil && *opts.ProviderName != "" {
 		query = query.Where("provider_name = ?", *opts.ProviderName)
+	}
+
+	// By default, exclude soft-deleted instances; show_deleted includes them
+	if opts == nil || !opts.ShowDeleted {
+		query = query.Where("deletion_status IS NULL")
 	}
 
 	// Apply consistent ordering for pagination
@@ -112,26 +123,13 @@ func (s *ServiceTypeInstanceStore) Create(ctx context.Context, instance model.Se
 	return backoff.Retry(ctx, operation, getRetryOptions()...)
 }
 
-func (s *ServiceTypeInstanceStore) Delete(ctx context.Context, id string) error {
-	operation := func() (any, error) {
-		result := s.db.WithContext(ctx).Where("id = ?", id).Delete(&model.ServiceTypeInstance{})
-		if result.Error != nil {
-			return nil, result.Error
-		}
-		if result.RowsAffected == 0 {
-			// Don't retry if record not found
-			return nil, backoff.Permanent(ErrInstanceNotFound)
-		}
-		return nil, nil
-	}
-
-	_, err := backoff.Retry(ctx, operation, getRetryOptions()...)
-	return err
-}
-
-func (s *ServiceTypeInstanceStore) Get(ctx context.Context, id string) (*model.ServiceTypeInstance, error) {
+func (s *ServiceTypeInstanceStore) Get(ctx context.Context, id string, showDeleted bool) (*model.ServiceTypeInstance, error) {
 	var instance model.ServiceTypeInstance
-	if err := s.db.WithContext(ctx).Where("id = ?", id).First(&instance).Error; err != nil {
+	query := s.db.WithContext(ctx).Where("id = ?", id)
+	if !showDeleted {
+		query = query.Where("deletion_status IS NULL")
+	}
+	if err := query.First(&instance).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrInstanceNotFound
 		}
@@ -167,6 +165,108 @@ func (s *ServiceTypeInstanceStore) ExistsByID(ctx context.Context, id string) (b
 		return false, err
 	}
 	return true, nil
+}
+
+const (
+	DeletionStatusPending = "PENDING"
+	DeletionStatusFailed  = "FAILED"
+)
+
+func (s *ServiceTypeInstanceStore) MarkForDeletion(ctx context.Context, id string) error {
+	now := time.Now()
+	result := s.db.WithContext(ctx).
+		Model(&model.ServiceTypeInstance{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"deletion_status":       DeletionStatusPending,
+			"deletion_requested_at": now,
+			"retry_count":           0,
+			"last_deletion_attempt": nil,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrInstanceNotFound
+	}
+	return nil
+}
+
+func (s *ServiceTypeInstanceStore) ListPendingDeletions(ctx context.Context) ([]model.ServiceTypeInstance, error) {
+	var instances []model.ServiceTypeInstance
+	if err := s.db.WithContext(ctx).
+		Where("deletion_status = ?", DeletionStatusPending).
+		Order("deletion_requested_at ASC").
+		Find(&instances).Error; err != nil {
+		return nil, err
+	}
+	return instances, nil
+}
+
+func (s *ServiceTypeInstanceStore) IncrementDeletionRetry(ctx context.Context, id string) error {
+	now := time.Now()
+	result := s.db.WithContext(ctx).
+		Model(&model.ServiceTypeInstance{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"retry_count":           gorm.Expr("retry_count + 1"),
+			"last_deletion_attempt": now,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrInstanceNotFound
+	}
+	return nil
+}
+
+func (s *ServiceTypeInstanceStore) MarkDeletionFailed(ctx context.Context, id string) error {
+	result := s.db.WithContext(ctx).
+		Model(&model.ServiceTypeInstance{}).
+		Where("id = ?", id).
+		Update("deletion_status", DeletionStatusFailed)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrInstanceNotFound
+	}
+	return nil
+}
+
+func (s *ServiceTypeInstanceStore) HardDelete(ctx context.Context, id string) error {
+	operation := func() (any, error) {
+		result := s.db.WithContext(ctx).Unscoped().Where("id = ?", id).Delete(&model.ServiceTypeInstance{})
+		if result.Error != nil {
+			return nil, result.Error
+		}
+		if result.RowsAffected == 0 {
+			return nil, backoff.Permanent(ErrInstanceNotFound)
+		}
+		return nil, nil
+	}
+
+	_, err := backoff.Retry(ctx, operation, getRetryOptions()...)
+	return err
+}
+
+func (s *ServiceTypeInstanceStore) ResetRetryCount(ctx context.Context, id string) error {
+	result := s.db.WithContext(ctx).
+		Model(&model.ServiceTypeInstance{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"deletion_status":       DeletionStatusPending,
+			"retry_count":           0,
+			"last_deletion_attempt": nil,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrInstanceNotFound
+	}
+	return nil
 }
 
 // getRetryOptions returns common retry configuration for database operations

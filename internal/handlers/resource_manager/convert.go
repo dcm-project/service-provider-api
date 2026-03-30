@@ -16,7 +16,7 @@ func convertServerToAPI(src *server.ServiceTypeInstance) *resource_manager.Servi
 
 // convertAPIToServer converts an API ServiceTypeInstance to a server ServiceTypeInstance.
 func convertAPIToServer(src *resource_manager.ServiceTypeInstance) server.ServiceTypeInstance {
-	return server.ServiceTypeInstance{
+	result := server.ServiceTypeInstance{
 		Id:           src.Id,
 		Path:         src.Path,
 		ProviderName: src.ProviderName,
@@ -25,6 +25,13 @@ func convertAPIToServer(src *resource_manager.ServiceTypeInstance) server.Servic
 		CreateTime:   src.CreateTime,
 		UpdateTime:   src.UpdateTime,
 	}
+
+	if src.DeletionStatus != nil {
+		ds := server.ServiceTypeInstanceDeletionStatus(*src.DeletionStatus)
+		result.DeletionStatus = &ds
+	}
+
+	return result
 }
 
 // convertAPIListToServer converts a slice of API ServiceTypeInstance to server ServiceTypeInstance.

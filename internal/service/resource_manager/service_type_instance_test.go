@@ -312,7 +312,7 @@ var _ = Describe("InstanceService", func() {
 			}
 			created, _ := instanceService.CreateInstance(ctx, req, nil)
 
-			result, err := instanceService.GetInstance(ctx, *created.Id)
+			result, err := instanceService.GetInstance(ctx, *created.Id, false)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).NotTo(BeNil())
@@ -321,7 +321,7 @@ var _ = Describe("InstanceService", func() {
 		})
 
 		It("returns not found error for non-existent instance", func() {
-			_, err := instanceService.GetInstance(ctx, uuid.New().String())
+			_, err := instanceService.GetInstance(ctx, uuid.New().String(), false)
 
 			Expect(err).To(HaveOccurred())
 			var svcErr *service.ServiceError
@@ -333,7 +333,7 @@ var _ = Describe("InstanceService", func() {
 
 	Describe("ListInstances", func() {
 		It("returns empty list when no instances exist", func() {
-			result, err := instanceService.ListInstances(ctx, nil, nil, nil)
+			result, err := instanceService.ListInstances(ctx, nil, false, nil, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).NotTo(BeNil())
@@ -351,7 +351,7 @@ var _ = Describe("InstanceService", func() {
 				Expect(err).NotTo(HaveOccurred())
 			}
 
-			result, err := instanceService.ListInstances(ctx, nil, nil, nil)
+			result, err := instanceService.ListInstances(ctx, nil, false, nil, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*result.Instances).To(HaveLen(3))
@@ -369,7 +369,7 @@ var _ = Describe("InstanceService", func() {
 			}
 
 			maxPageSize := 2
-			result, err := instanceService.ListInstances(ctx, nil, &maxPageSize, nil)
+			result, err := instanceService.ListInstances(ctx, nil, false, &maxPageSize, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*result.Instances).To(HaveLen(2))
@@ -377,7 +377,7 @@ var _ = Describe("InstanceService", func() {
 			Expect(*result.NextPageToken).NotTo(BeEmpty())
 
 			// Get second page using token
-			secondPage, err := instanceService.ListInstances(ctx, nil, &maxPageSize, result.NextPageToken)
+			secondPage, err := instanceService.ListInstances(ctx, nil, false, &maxPageSize, result.NextPageToken)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*secondPage.Instances).To(HaveLen(2))
@@ -393,7 +393,7 @@ var _ = Describe("InstanceService", func() {
 			}
 
 			// Get third page (last page with 1 item)
-			thirdPage, err := instanceService.ListInstances(ctx, nil, &maxPageSize, secondPage.NextPageToken)
+			thirdPage, err := instanceService.ListInstances(ctx, nil, false, &maxPageSize, secondPage.NextPageToken)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*thirdPage.Instances).To(HaveLen(1))
 			Expect(thirdPage.NextPageToken).To(BeNil())
@@ -431,7 +431,7 @@ var _ = Describe("InstanceService", func() {
 
 			// Filter by first provider
 			filterProvider := "test-provider"
-			result, err := instanceService.ListInstances(ctx, &filterProvider, nil, nil)
+			result, err := instanceService.ListInstances(ctx, &filterProvider, false, nil, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*result.Instances).To(HaveLen(2))
@@ -441,7 +441,7 @@ var _ = Describe("InstanceService", func() {
 
 			// Filter by second provider
 			filterProvider = "second-provider"
-			result, err = instanceService.ListInstances(ctx, &filterProvider, nil, nil)
+			result, err = instanceService.ListInstances(ctx, &filterProvider, false, nil, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*result.Instances).To(HaveLen(3))
@@ -460,13 +460,13 @@ var _ = Describe("InstanceService", func() {
 			}
 			created, _ := instanceService.CreateInstance(ctx, req, nil)
 
-			err := instanceService.DeleteInstance(ctx, *created.Id)
+			err := instanceService.DeleteInstance(ctx, *created.Id, false)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deleteRequested).To(BeTrue())
 
 			// Verify it's deleted
-			_, err = instanceService.GetInstance(ctx, *created.Id)
+			_, err = instanceService.GetInstance(ctx, *created.Id, false)
 			var svcErr *service.ServiceError
 			Expect(err).To(BeAssignableToTypeOf(svcErr))
 			errors.As(err, &svcErr)
@@ -474,7 +474,7 @@ var _ = Describe("InstanceService", func() {
 		})
 
 		It("returns not found error for non-existent instance", func() {
-			err := instanceService.DeleteInstance(ctx, uuid.New().String())
+			err := instanceService.DeleteInstance(ctx, uuid.New().String(), false)
 
 			Expect(err).To(HaveOccurred())
 			var svcErr *service.ServiceError
@@ -483,8 +483,7 @@ var _ = Describe("InstanceService", func() {
 			Expect(svcErr.Code).To(Equal(service.ErrCodeNotFound))
 		})
 
-		It("continues deletion even if provider is missing", func() {
-			// Create an instance
+		It("returns error when provider is missing and deferred is false", func() {
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "test-provider",
 				Spec:         map[string]interface{}{"cpu": 2},
@@ -494,13 +493,131 @@ var _ = Describe("InstanceService", func() {
 			// Delete the provider from the database
 			Expect(db.Delete(&model.Provider{}, "name = ?", "test-provider").Error).NotTo(HaveOccurred())
 
-			// Delete should still succeed (provider gone, but instance deletion continues)
-			err := instanceService.DeleteInstance(ctx, *created.Id)
+			err := instanceService.DeleteInstance(ctx, *created.Id, false)
 
+			Expect(err).To(HaveOccurred())
+			var svcErr *service.ServiceError
+			Expect(err).To(BeAssignableToTypeOf(svcErr))
+			errors.As(err, &svcErr)
+			Expect(svcErr.Code).To(Equal(service.ErrCodeProviderError))
+		})
+
+		It("defers deletion when provider is missing and deferred is true", func() {
+			req := &resource_manager.ServiceTypeInstance{
+				ProviderName: "test-provider",
+				Spec:         map[string]interface{}{"cpu": 2},
+			}
+			created, _ := instanceService.CreateInstance(ctx, req, nil)
+
+			// Delete the provider from the database
+			Expect(db.Delete(&model.Provider{}, "name = ?", "test-provider").Error).NotTo(HaveOccurred())
+
+			// Deferred delete should succeed
+			err := instanceService.DeleteInstance(ctx, *created.Id, true)
 			Expect(err).NotTo(HaveOccurred())
 
-			// Verify it's deleted
-			_, err = instanceService.GetInstance(ctx, *created.Id)
+			// Instance should be marked for deletion, not visible in default list
+			result, err := instanceService.ListInstances(ctx, nil, false, nil, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*result.Instances).To(BeEmpty())
+
+			// But visible with show_deleted
+			result, err = instanceService.ListInstances(ctx, nil, true, nil, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*result.Instances).To(HaveLen(1))
+			Expect(string(*(*result.Instances)[0].DeletionStatus)).To(Equal("PENDING"))
+		})
+
+		It("defers deletion when provider returns error and deferred is true", func() {
+			// Create a provider that returns errors on delete
+			mockProviderError := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodDelete {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"id":     uuid.New().String(),
+					"status": "PROVISIONING",
+				})
+			}))
+			defer mockProviderError.Close()
+
+			errorProvider := model.Provider{
+				ID:           uuid.New().String(),
+				Name:         "error-provider",
+				ServiceType:  "vm",
+				Endpoint:     mockProviderError.URL,
+				HealthStatus: model.HealthStatusReady,
+			}
+			Expect(db.Create(&errorProvider).Error).NotTo(HaveOccurred())
+
+			req := &resource_manager.ServiceTypeInstance{
+				ProviderName: "error-provider",
+				Spec:         map[string]interface{}{"cpu": 2},
+			}
+			created, err := instanceService.CreateInstance(ctx, req, nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Deferred delete should succeed despite provider error
+			err = instanceService.DeleteInstance(ctx, *created.Id, true)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify marked as PENDING
+			result, err := instanceService.ListInstances(ctx, nil, true, nil, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*result.Instances).To(HaveLen(1))
+		})
+
+		It("resets retry count when deleting a FAILED instance with deferred=true", func() {
+			req := &resource_manager.ServiceTypeInstance{
+				ProviderName: "test-provider",
+				Spec:         map[string]interface{}{"cpu": 2},
+			}
+			created, _ := instanceService.CreateInstance(ctx, req, nil)
+
+			// Manually mark instance as FAILED with high retry count
+			failed := "FAILED"
+			Expect(db.Model(&model.ServiceTypeInstance{}).Where("id = ?", *created.Id).Updates(map[string]interface{}{
+				"deletion_status": failed,
+				"retry_count":     10,
+			}).Error).NotTo(HaveOccurred())
+
+			// Delete the provider so SP deletion fails
+			Expect(db.Delete(&model.Provider{}, "name = ?", "test-provider").Error).NotTo(HaveOccurred())
+
+			// Deferred delete should succeed and reset retry count
+			err := instanceService.DeleteInstance(ctx, *created.Id, true)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify retry count was reset and status is PENDING
+			var instance model.ServiceTypeInstance
+			Expect(db.Where("id = ?", *created.Id).First(&instance).Error).NotTo(HaveOccurred())
+			Expect(instance.RetryCount).To(Equal(0))
+			Expect(*instance.DeletionStatus).To(Equal("PENDING"))
+		})
+
+		It("returns 204 when deleting an already-pending instance and SP succeeds", func() {
+			req := &resource_manager.ServiceTypeInstance{
+				ProviderName: "test-provider",
+				Spec:         map[string]interface{}{"cpu": 2},
+			}
+			created, _ := instanceService.CreateInstance(ctx, req, nil)
+
+			// Manually mark instance as PENDING
+			pending := "PENDING"
+			Expect(db.Model(&model.ServiceTypeInstance{}).Where("id = ?", *created.Id).Updates(map[string]interface{}{
+				"deletion_status": pending,
+			}).Error).NotTo(HaveOccurred())
+
+			// Delete should succeed (SP is available) and hard-delete the record
+			err := instanceService.DeleteInstance(ctx, *created.Id, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteRequested).To(BeTrue())
+
+			// Verify it's fully gone
+			_, err = instanceService.GetInstance(ctx, *created.Id, false)
 			var svcErr *service.ServiceError
 			Expect(err).To(BeAssignableToTypeOf(svcErr))
 			errors.As(err, &svcErr)

@@ -32,14 +32,17 @@ func (h *Handler) GetHealth(_ context.Context, _ server.GetHealthRequestObject) 
 // ListInstances returns a paginated list of service type instances.
 func (h *Handler) ListInstances(ctx context.Context, request server.ListInstancesRequestObject) (server.ListInstancesResponseObject, error) {
 	log := logging.FromContext(ctx)
+	showDeleted := request.Params.ShowDeleted != nil && *request.Params.ShowDeleted
 	log.Debug("ListInstances request received",
 		"provider", request.Params.Provider,
 		"page_size", request.Params.MaxPageSize,
+		"show_deleted", showDeleted,
 	)
 
 	result, err := h.instanceService.ListInstances(
 		ctx,
 		request.Params.Provider,
+		showDeleted,
 		request.Params.MaxPageSize,
 		request.Params.PageToken,
 	)
@@ -81,9 +84,11 @@ func (h *Handler) CreateInstance(ctx context.Context, request server.CreateInsta
 // GetInstance retrieves a service type instance by ID.
 func (h *Handler) GetInstance(ctx context.Context, request server.GetInstanceRequestObject) (server.GetInstanceResponseObject, error) {
 	log := logging.FromContext(ctx)
-	log.Debug("GetInstance request received", "instance_id", request.InstanceId)
 
-	result, err := h.instanceService.GetInstance(ctx, request.InstanceId)
+	showDeleted := request.Params.ShowDeleted != nil && *request.Params.ShowDeleted
+	log.Debug("GetInstance request received", "instance_id", request.InstanceId, "show_deleted", showDeleted)
+
+	result, err := h.instanceService.GetInstance(ctx, request.InstanceId, showDeleted)
 	if err != nil {
 		logServiceError(ctx, "GetInstance failed", err, "instance_id", request.InstanceId)
 		return handleGetInstanceError(err), nil
@@ -96,9 +101,11 @@ func (h *Handler) GetInstance(ctx context.Context, request server.GetInstanceReq
 // DeleteInstance deletes a service type instance by ID.
 func (h *Handler) DeleteInstance(ctx context.Context, request server.DeleteInstanceRequestObject) (server.DeleteInstanceResponseObject, error) {
 	log := logging.FromContext(ctx)
-	log.Debug("DeleteInstance request received", "instance_id", request.InstanceId)
 
-	err := h.instanceService.DeleteInstance(ctx, request.InstanceId)
+	deferred := request.Params.Deferred != nil && *request.Params.Deferred
+	log.Debug("DeleteInstance request received", "instance_id", request.InstanceId, "deferred", deferred)
+
+	err := h.instanceService.DeleteInstance(ctx, request.InstanceId, deferred)
 	if err != nil {
 		logServiceError(ctx, "DeleteInstance failed", err, "instance_id", request.InstanceId)
 		return handleDeleteInstanceError(err), nil
