@@ -1,4 +1,5 @@
-package store
+// Package provider provides database access for provider operations.
+package provider
 
 import (
 	"context"

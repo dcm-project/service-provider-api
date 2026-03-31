@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/dcm-project/service-provider-manager/pkg/client"
+	providerclient "github.com/dcm-project/service-provider-manager/pkg/client/provider"
 	. "github.com/onsi/gomega"
 )
 
@@ -57,7 +57,7 @@ func stubProviderHealthEndpoint() {
 
 // waitForProviderReady polls the provider API until the provider's health status is "ready".
 // This ensures the health check monitor has confirmed the provider before tests proceed.
-func waitForProviderReady(apiClient *client.ClientWithResponses, ctx context.Context, providerID string) {
+func waitForProviderReady(apiClient *providerclient.ClientWithResponses, ctx context.Context, providerID string) {
 	Eventually(func() string {
 		getResp, err := apiClient.GetProviderWithResponse(ctx, providerID)
 		if err != nil || getResp.StatusCode() != http.StatusOK || getResp.JSON200 == nil {

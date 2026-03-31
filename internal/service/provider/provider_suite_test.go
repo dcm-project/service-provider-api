@@ -1,4 +1,4 @@
-package handlers_test
+package provider_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestHandlers(t *testing.T) {
+func TestProviderService(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Handlers Suite")
+	RunSpecs(t, "Provider Service Suite")
 }

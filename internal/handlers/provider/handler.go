@@ -1,34 +1,35 @@
-// Package handlers implements HTTP handlers for the Provider API.
-package handlers
+// Package provider implements HTTP handlers for the Provider API.
+package provider
 
 import (
 	"context"
 
-	"github.com/dcm-project/service-provider-manager/internal/api/server"
+	providerserver "github.com/dcm-project/service-provider-manager/internal/api/server/provider"
 	"github.com/dcm-project/service-provider-manager/internal/logging"
 	"github.com/dcm-project/service-provider-manager/internal/service"
+	providersvc "github.com/dcm-project/service-provider-manager/internal/service/provider"
 )
 
 // Handler implements the generated StrictServerInterface for the Provider API.
 type Handler struct {
-	providerService *service.ProviderService
+	providerService *providersvc.ProviderService
 }
 
 // NewHandler creates a new Handler with the given provider service.
-func NewHandler(providerService *service.ProviderService) *Handler {
+func NewHandler(providerService *providersvc.ProviderService) *Handler {
 	return &Handler{providerService: providerService}
 }
 
 // Ensure Handler implements StrictServerInterface
-var _ server.StrictServerInterface = (*Handler)(nil)
+var _ providerserver.StrictServerInterface = (*Handler)(nil)
 
-func (h *Handler) GetHealth(_ context.Context, _ server.GetHealthRequestObject) (server.GetHealthResponseObject, error) {
+func (h *Handler) GetHealth(_ context.Context, _ providerserver.GetHealthRequestObject) (providerserver.GetHealthResponseObject, error) {
 	status := "ok"
 	path := "health"
-	return server.GetHealth200JSONResponse{Status: &status, Path: &path}, nil
+	return providerserver.GetHealth200JSONResponse{Status: &status, Path: &path}, nil
 }
 
-func (h *Handler) ListProviders(ctx context.Context, request server.ListProvidersRequestObject) (server.ListProvidersResponseObject, error) {
+func (h *Handler) ListProviders(ctx context.Context, request providerserver.ListProvidersRequestObject) (providerserver.ListProvidersResponseObject, error) {
 	log := logging.FromContext(ctx)
 	log.Debug("ListProviders request received",
 		"type", request.Params.Type,
@@ -53,12 +54,12 @@ func (h *Handler) ListProviders(ctx context.Context, request server.ListProvider
 	if err != nil {
 		logServiceError(ctx, "ListProviders failed", err)
 		if svcErr, ok := err.(*service.ServiceError); ok && svcErr.Code == service.ErrCodeValidation {
-			return server.ListProviders400ApplicationProblemPlusJSONResponse(newError("validation-error", "Invalid request", svcErr.Message, 400)), nil
+			return providerserver.ListProviders400ApplicationProblemPlusJSONResponse(newError("validation-error", "Invalid request", svcErr.Message, 400)), nil
 		}
-		return server.ListProviders400ApplicationProblemPlusJSONResponse(newError("list-error", "Failed to list providers", err.Error(), 400)), nil
+		return providerserver.ListProviders400ApplicationProblemPlusJSONResponse(newError("list-error", "Failed to list providers", err.Error(), 400)), nil
 	}
 
-	response := server.ListProviders200JSONResponse{Providers: &result.Providers}
+	response := providerserver.ListProviders200JSONResponse{Providers: &result.Providers}
 	if result.NextPageToken != "" {
 		response.NextPageToken = &result.NextPageToken
 	}
@@ -67,7 +68,7 @@ func (h *Handler) ListProviders(ctx context.Context, request server.ListProvider
 	return response, nil
 }
 
-func (h *Handler) CreateProvider(ctx context.Context, request server.CreateProviderRequestObject) (server.CreateProviderResponseObject, error) {
+func (h *Handler) CreateProvider(ctx context.Context, request providerserver.CreateProviderRequestObject) (providerserver.CreateProviderResponseObject, error) {
 	log := logging.FromContext(ctx)
 	log.Debug("CreateProvider request received",
 		"client_id", request.Params.Id,
@@ -80,23 +81,23 @@ func (h *Handler) CreateProvider(ctx context.Context, request server.CreateProvi
 		if svcErr, ok := err.(*service.ServiceError); ok {
 			switch svcErr.Code {
 			case service.ErrCodeValidation:
-				return server.CreateProvider400ApplicationProblemPlusJSONResponse(newError("validation-error", "Validation failed", svcErr.Message, 400)), nil
+				return providerserver.CreateProvider400ApplicationProblemPlusJSONResponse(newError("validation-error", "Validation failed", svcErr.Message, 400)), nil
 			case service.ErrCodeConflict:
-				return server.CreateProvider409ApplicationProblemPlusJSONResponse(newError("conflict", "Resource conflict", svcErr.Message, 409)), nil
+				return providerserver.CreateProvider409ApplicationProblemPlusJSONResponse(newError("conflict", "Resource conflict", svcErr.Message, 409)), nil
 			}
 		}
-		return server.CreateProvider400ApplicationProblemPlusJSONResponse(newError("create-error", "Failed to create provider", err.Error(), 400)), nil
+		return providerserver.CreateProvider400ApplicationProblemPlusJSONResponse(newError("create-error", "Failed to create provider", err.Error(), 400)), nil
 	}
 
-	if response.Status != nil && *response.Status == server.Updated {
+	if response.Status != nil && *response.Status == providerserver.Updated {
 		log.Info("Provider updated", "provider_id", *response.Id)
-		return server.CreateProvider200JSONResponse(*response), nil
+		return providerserver.CreateProvider200JSONResponse(*response), nil
 	}
 	log.Info("Provider created", "provider_id", *response.Id)
-	return server.CreateProvider201JSONResponse(*response), nil
+	return providerserver.CreateProvider201JSONResponse(*response), nil
 }
 
-func (h *Handler) GetProvider(ctx context.Context, request server.GetProviderRequestObject) (server.GetProviderResponseObject, error) {
+func (h *Handler) GetProvider(ctx context.Context, request providerserver.GetProviderRequestObject) (providerserver.GetProviderResponseObject, error) {
 	log := logging.FromContext(ctx)
 	log.Debug("GetProvider request received", "provider_id", request.ProviderId)
 
@@ -104,16 +105,16 @@ func (h *Handler) GetProvider(ctx context.Context, request server.GetProviderReq
 	if err != nil {
 		logServiceError(ctx, "GetProvider failed", err, "provider_id", request.ProviderId)
 		if svcErr, ok := err.(*service.ServiceError); ok && svcErr.Code == service.ErrCodeNotFound {
-			return server.GetProvider404ApplicationProblemPlusJSONResponse(newError("not-found", "Provider not found", svcErr.Message, 404)), nil
+			return providerserver.GetProvider404ApplicationProblemPlusJSONResponse(newError("not-found", "Provider not found", svcErr.Message, 404)), nil
 		}
-		return server.GetProvider400ApplicationProblemPlusJSONResponse(newError("get-error", "Failed to get provider", err.Error(), 400)), nil
+		return providerserver.GetProvider400ApplicationProblemPlusJSONResponse(newError("get-error", "Failed to get provider", err.Error(), 400)), nil
 	}
 
 	log.Debug("GetProvider completed", "provider_id", request.ProviderId)
-	return server.GetProvider200JSONResponse(*provider), nil
+	return providerserver.GetProvider200JSONResponse(*provider), nil
 }
 
-func (h *Handler) ApplyProvider(ctx context.Context, request server.ApplyProviderRequestObject) (server.ApplyProviderResponseObject, error) {
+func (h *Handler) ApplyProvider(ctx context.Context, request providerserver.ApplyProviderRequestObject) (providerserver.ApplyProviderResponseObject, error) {
 	log := logging.FromContext(ctx)
 	log.Debug("ApplyProvider request received", "provider_id", request.ProviderId)
 
@@ -123,19 +124,19 @@ func (h *Handler) ApplyProvider(ctx context.Context, request server.ApplyProvide
 		if svcErr, ok := err.(*service.ServiceError); ok {
 			switch svcErr.Code {
 			case service.ErrCodeNotFound:
-				return server.ApplyProvider404ApplicationProblemPlusJSONResponse(newError("not-found", "Provider not found", svcErr.Message, 404)), nil
+				return providerserver.ApplyProvider404ApplicationProblemPlusJSONResponse(newError("not-found", "Provider not found", svcErr.Message, 404)), nil
 			case service.ErrCodeConflict:
-				return server.ApplyProvider409ApplicationProblemPlusJSONResponse(newError("conflict", "Name conflict", svcErr.Message, 409)), nil
+				return providerserver.ApplyProvider409ApplicationProblemPlusJSONResponse(newError("conflict", "Name conflict", svcErr.Message, 409)), nil
 			}
 		}
-		return server.ApplyProvider400ApplicationProblemPlusJSONResponse(newError("update-error", "Failed to update provider", err.Error(), 400)), nil
+		return providerserver.ApplyProvider400ApplicationProblemPlusJSONResponse(newError("update-error", "Failed to update provider", err.Error(), 400)), nil
 	}
 
 	log.Info("Provider updated", "provider_id", request.ProviderId)
-	return server.ApplyProvider200JSONResponse(*provider), nil
+	return providerserver.ApplyProvider200JSONResponse(*provider), nil
 }
 
-func (h *Handler) DeleteProvider(ctx context.Context, request server.DeleteProviderRequestObject) (server.DeleteProviderResponseObject, error) {
+func (h *Handler) DeleteProvider(ctx context.Context, request providerserver.DeleteProviderRequestObject) (providerserver.DeleteProviderResponseObject, error) {
 	log := logging.FromContext(ctx)
 	log.Debug("DeleteProvider request received", "provider_id", request.ProviderId)
 
@@ -143,13 +144,13 @@ func (h *Handler) DeleteProvider(ctx context.Context, request server.DeleteProvi
 	if err != nil {
 		logServiceError(ctx, "DeleteProvider failed", err, "provider_id", request.ProviderId)
 		if svcErr, ok := err.(*service.ServiceError); ok && svcErr.Code == service.ErrCodeNotFound {
-			return server.DeleteProvider404ApplicationProblemPlusJSONResponse(newError("not-found", "Provider not found", svcErr.Message, 404)), nil
+			return providerserver.DeleteProvider404ApplicationProblemPlusJSONResponse(newError("not-found", "Provider not found", svcErr.Message, 404)), nil
 		}
-		return server.DeleteProvider400ApplicationProblemPlusJSONResponse(newError("delete-error", "Failed to delete provider", err.Error(), 400)), nil
+		return providerserver.DeleteProvider400ApplicationProblemPlusJSONResponse(newError("delete-error", "Failed to delete provider", err.Error(), 400)), nil
 	}
 
 	log.Info("Provider deleted", "provider_id", request.ProviderId)
-	return server.DeleteProvider204Response{}, nil
+	return providerserver.DeleteProvider204Response{}, nil
 }
 
 // logServiceError logs at Warn level for client errors (4xx) and Error level
@@ -165,8 +166,8 @@ func logServiceError(ctx context.Context, msg string, err error, attrs ...any) {
 	}
 }
 
-func newError(errType, title, detail string, status int) server.Error {
-	return server.Error{
+func newError(errType, title, detail string, status int) providerserver.Error {
+	return providerserver.Error{
 		Type:   errType,
 		Title:  title,
 		Detail: &detail,

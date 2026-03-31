@@ -1,3 +1,4 @@
+// Package service provides shared types and helpers for business logic layers.
 package service
 
 import "errors"

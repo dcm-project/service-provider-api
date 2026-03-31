@@ -2,27 +2,28 @@
 package store
 
 import (
-	store "github.com/dcm-project/service-provider-manager/internal/store/resource_manager"
+	providerstore "github.com/dcm-project/service-provider-manager/internal/store/provider"
+	rmstore "github.com/dcm-project/service-provider-manager/internal/store/resource_manager"
 	"gorm.io/gorm"
 )
 
 type Store interface {
 	Close() error
-	Provider() Provider
-	ServiceTypeInstance() store.ServiceTypeInstance
+	Provider() providerstore.Provider
+	ServiceTypeInstance() rmstore.ServiceTypeInstance
 }
 
 type DataStore struct {
 	db       *gorm.DB
-	provider Provider
-	instance store.ServiceTypeInstance
+	provider providerstore.Provider
+	instance rmstore.ServiceTypeInstance
 }
 
 func NewStore(db *gorm.DB) Store {
 	return &DataStore{
 		db:       db,
-		provider: NewProvider(db),
-		instance: store.NewServiceTypeInstance(db),
+		provider: providerstore.NewProvider(db),
+		instance: rmstore.NewServiceTypeInstance(db),
 	}
 }
 
@@ -34,10 +35,10 @@ func (s *DataStore) Close() error {
 	return sqlDB.Close()
 }
 
-func (s *DataStore) Provider() Provider {
+func (s *DataStore) Provider() providerstore.Provider {
 	return s.provider
 }
 
-func (s *DataStore) ServiceTypeInstance() store.ServiceTypeInstance {
+func (s *DataStore) ServiceTypeInstance() rmstore.ServiceTypeInstance {
 	return s.instance
 }

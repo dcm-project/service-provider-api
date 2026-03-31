@@ -1,11 +1,11 @@
-package store_test
+package provider_test
 
 import (
 	"context"
 	"time"
 
-	"github.com/dcm-project/service-provider-manager/internal/store"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
+	"github.com/dcm-project/service-provider-manager/internal/store/provider"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,7 +17,7 @@ import (
 var _ = Describe("Provider Store", func() {
 	var (
 		db            *gorm.DB
-		providerStore store.Provider
+		providerStore provider.Provider
 		ctx           context.Context
 	)
 
@@ -29,7 +29,7 @@ var _ = Describe("Provider Store", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(db.AutoMigrate(&model.Provider{})).To(Succeed())
 
-		providerStore = store.NewProvider(db)
+		providerStore = provider.NewProvider(db)
 		ctx = context.Background()
 	})
 
@@ -75,7 +75,7 @@ var _ = Describe("Provider Store", func() {
 		It("returns ErrProviderNotFound for missing ID", func() {
 			_, err := providerStore.Get(ctx, uuid.New().String())
 
-			Expect(err).To(Equal(store.ErrProviderNotFound))
+			Expect(err).To(Equal(provider.ErrProviderNotFound))
 		})
 	})
 
@@ -94,7 +94,7 @@ var _ = Describe("Provider Store", func() {
 		It("returns ErrProviderNotFound for missing name", func() {
 			_, err := providerStore.GetByName(ctx, "non-existent")
 
-			Expect(err).To(Equal(store.ErrProviderNotFound))
+			Expect(err).To(Equal(provider.ErrProviderNotFound))
 		})
 	})
 
@@ -123,7 +123,7 @@ var _ = Describe("Provider Store", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			vmType := "vm"
-			vms, err := providerStore.List(ctx, &store.ProviderFilter{ServiceType: &vmType}, nil)
+			vms, err := providerStore.List(ctx, &provider.ProviderFilter{ServiceType: &vmType}, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vms).To(HaveLen(1))
@@ -137,7 +137,7 @@ var _ = Describe("Provider Store", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			name := "find-me"
-			providers, err := providerStore.List(ctx, &store.ProviderFilter{Name: &name}, nil)
+			providers, err := providerStore.List(ctx, &provider.ProviderFilter{Name: &name}, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(providers).To(HaveLen(1))
@@ -157,7 +157,7 @@ var _ = Describe("Provider Store", func() {
 
 			name := "vm-one"
 			vmType := "vm"
-			providers, err := providerStore.List(ctx, &store.ProviderFilter{Name: &name, ServiceType: &vmType}, nil)
+			providers, err := providerStore.List(ctx, &provider.ProviderFilter{Name: &name, ServiceType: &vmType}, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(providers).To(HaveLen(1))
@@ -172,7 +172,7 @@ var _ = Describe("Provider Store", func() {
 			_, err = providerStore.Create(ctx, newProvider("page-p3"))
 			Expect(err).NotTo(HaveOccurred())
 
-			providers, err := providerStore.List(ctx, nil, &store.Pagination{Limit: 2, Offset: 0})
+			providers, err := providerStore.List(ctx, nil, &provider.Pagination{Limit: 2, Offset: 0})
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(providers).To(HaveLen(2))
@@ -186,7 +186,7 @@ var _ = Describe("Provider Store", func() {
 			_, err = providerStore.Create(ctx, newProvider("offset-p3"))
 			Expect(err).NotTo(HaveOccurred())
 
-			providers, err := providerStore.List(ctx, nil, &store.Pagination{Limit: 10, Offset: 2})
+			providers, err := providerStore.List(ctx, nil, &provider.Pagination{Limit: 10, Offset: 2})
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(providers).To(HaveLen(1))
@@ -218,7 +218,7 @@ var _ = Describe("Provider Store", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			vmType := "vm"
-			count, err := providerStore.Count(ctx, &store.ProviderFilter{ServiceType: &vmType})
+			count, err := providerStore.Count(ctx, &provider.ProviderFilter{ServiceType: &vmType})
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(count).To(Equal(int64(1)))
@@ -239,7 +239,7 @@ var _ = Describe("Provider Store", func() {
 		It("returns ErrProviderNotFound for missing ID", func() {
 			err := providerStore.Delete(ctx, uuid.New().String())
 
-			Expect(err).To(Equal(store.ErrProviderNotFound))
+			Expect(err).To(Equal(provider.ErrProviderNotFound))
 		})
 	})
 
@@ -260,7 +260,7 @@ var _ = Describe("Provider Store", func() {
 			p := newProvider("non-existing")
 			_, err := providerStore.Update(ctx, p)
 
-			Expect(err).To(Equal(store.ErrProviderNotFound))
+			Expect(err).To(Equal(provider.ErrProviderNotFound))
 		})
 	})
 
@@ -433,7 +433,7 @@ var _ = Describe("Provider Store", func() {
 			nextCheck := time.Now().Add(1 * time.Hour)
 			err := providerStore.UpdateHealthStatus(ctx, uuid.New().String(), model.HealthStatusReady, 0, nextCheck)
 
-			Expect(err).To(Equal(store.ErrProviderNotFound))
+			Expect(err).To(Equal(provider.ErrProviderNotFound))
 		})
 	})
 })

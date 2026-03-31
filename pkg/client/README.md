@@ -5,7 +5,7 @@ Go client library for the Service Provider Manager API, generated from OpenAPI.
 ## Installation
 
 ```bash
-go get github.com/dcm-project/service-provider-manager/pkg/client
+go get github.com/dcm-project/service-provider-manager/pkg/client/provider
 ```
 
 ## Usage
@@ -15,11 +15,11 @@ go get github.com/dcm-project/service-provider-manager/pkg/client
 ```go
 import (
     "context"
-    "github.com/dcm-project/service-provider-manager/api/v1alpha1"
-    "github.com/dcm-project/service-provider-manager/pkg/client"
+    providerapi "github.com/dcm-project/service-provider-manager/api/v1alpha1/provider"
+    providerclient "github.com/dcm-project/service-provider-manager/pkg/client/provider"
 )
 
-c, err := client.NewClientWithResponses("http://localhost:8080/api/v1alpha1")
+c, err := providerclient.NewClientWithResponses("http://localhost:8080/api/v1alpha1")
 if err != nil {
     log.Fatal(err)
 }
@@ -34,7 +34,7 @@ be updated.
 ```go
 ctx := context.Background()
 
-resp, err := c.CreateProviderWithResponse(ctx, nil, v1alpha1.Provider{
+resp, err := c.CreateProviderWithResponse(ctx, nil, providerapi.Provider{
     Name:          "my-kubevirt-provider",
     Endpoint:      "https://my-provider.local/api/v1",
     ServiceType:   "vm",
@@ -64,12 +64,10 @@ Per AEP-133, specify the provider ID as a query parameter for idempotent
 registration:
 
 ```go
-import openapi_types "github.com/oapi-codegen/runtime/types"
+providerID := "550e8400-e29b-41d4-a716-446655440000"
+params := &providerapi.CreateProviderParams{Id: &providerID}
 
-providerID := openapi_types.UUID(uuid.MustParse("550e8400-e29b-41d4-a716-446655440000"))
-params := &v1alpha1.CreateProviderParams{Id: &providerID}
-
-resp, err := c.CreateProviderWithResponse(ctx, params, v1alpha1.Provider{
+resp, err := c.CreateProviderWithResponse(ctx, params, providerapi.Provider{
     Name:          "my-provider",
     Endpoint:      "https://my-provider.local/api/v1",
     ServiceType:   "vm",
@@ -86,9 +84,9 @@ httpClient := &http.Client{
     Timeout: 30 * time.Second,
 }
 
-c, err := client.NewClientWithResponses(
+c, err := providerclient.NewClientWithResponses(
     "http://localhost:8080/api/v1alpha1",
-    client.WithHTTPClient(httpClient),
+    providerclient.WithHTTPClient(httpClient),
 )
 ```
 
