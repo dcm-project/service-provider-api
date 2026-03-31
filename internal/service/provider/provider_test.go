@@ -1,11 +1,12 @@
-package service_test
+package provider_test
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/dcm-project/service-provider-manager/internal/api/server"
+	providerserver "github.com/dcm-project/service-provider-manager/internal/api/server/provider"
 	"github.com/dcm-project/service-provider-manager/internal/service"
+	providersvc "github.com/dcm-project/service-provider-manager/internal/service/provider"
 	"github.com/dcm-project/service-provider-manager/internal/store"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
 	"github.com/google/uuid"
@@ -20,7 +21,7 @@ var _ = Describe("ProviderService", func() {
 	var (
 		db              *gorm.DB
 		dataStore       store.Store
-		providerService *service.ProviderService
+		providerService *providersvc.ProviderService
 		ctx             context.Context
 	)
 
@@ -33,7 +34,7 @@ var _ = Describe("ProviderService", func() {
 		Expect(db.AutoMigrate(&model.Provider{})).To(Succeed())
 
 		dataStore = store.NewStore(db)
-		providerService = service.NewProviderService(dataStore)
+		providerService = providersvc.NewProviderService(dataStore)
 		ctx = context.Background()
 	})
 
@@ -49,7 +50,7 @@ var _ = Describe("ProviderService", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.Status).NotTo(BeNil())
-			Expect(*resp.Status).To(Equal(server.Registered))
+			Expect(*resp.Status).To(Equal(providerserver.Registered))
 			Expect(resp.Name).To(Equal("new-provider"))
 		})
 
@@ -61,12 +62,12 @@ var _ = Describe("ProviderService", func() {
 			// Re-register with same ID
 			req.Id = resp1.Id
 			req.Endpoint = "https://updated.example.com"
-			var resp2 *server.Provider
+			var resp2 *providerserver.Provider
 			resp2, err = providerService.RegisterOrUpdateProvider(ctx, req, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp2.Status).NotTo(BeNil())
-			Expect(*resp2.Status).To(Equal(server.Updated))
+			Expect(*resp2.Status).To(Equal(providerserver.Updated))
 		})
 
 		It("updates existing provider with same name and no ID (idempotent)", func() {
@@ -77,12 +78,12 @@ var _ = Describe("ProviderService", func() {
 			// Re-register with same name but NO ID
 			req2 := newProvider("idempotent-test")
 			req2.Endpoint = "https://updated.example.com"
-			var resp2 *server.Provider
+			var resp2 *providerserver.Provider
 			resp2, err = providerService.RegisterOrUpdateProvider(ctx, req2, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp2.Status).NotTo(BeNil())
-			Expect(*resp2.Status).To(Equal(server.Updated))
+			Expect(*resp2.Status).To(Equal(providerserver.Updated))
 			Expect(*resp2.Id).To(Equal(*resp1.Id)) // Same ID returned
 			Expect(resp2.Endpoint).To(Equal("https://updated.example.com"))
 		})
@@ -237,7 +238,7 @@ var _ = Describe("ProviderService", func() {
 			resp, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			update := &server.Provider{
+			update := &providerserver.Provider{
 				Id:            resp.Id,
 				Name:          "update-provider",
 				Endpoint:      "https://updated.example.com",
@@ -255,12 +256,12 @@ var _ = Describe("ProviderService", func() {
 			// Create two providers
 			_, err := providerService.RegisterOrUpdateProvider(ctx, newProvider("original-name"), nil)
 			Expect(err).NotTo(HaveOccurred())
-			var resp2 *server.Provider
+			var resp2 *providerserver.Provider
 			resp2, err = providerService.RegisterOrUpdateProvider(ctx, newProvider("to-rename"), nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Try to rename second provider to first provider's name
-			update := &server.Provider{
+			update := &providerserver.Provider{
 				Name:          "original-name",
 				Endpoint:      "https://example.com",
 				ServiceType:   "vm",
@@ -276,7 +277,7 @@ var _ = Describe("ProviderService", func() {
 		})
 
 		It("returns error for non-existent provider", func() {
-			update := &server.Provider{
+			update := &providerserver.Provider{
 				Name:          "test",
 				Endpoint:      "https://example.com",
 				ServiceType:   "vm",
@@ -314,8 +315,8 @@ var _ = Describe("ProviderService", func() {
 	})
 })
 
-func newProvider(name string) *server.Provider {
-	return &server.Provider{
+func newProvider(name string) *providerserver.Provider {
+	return &providerserver.Provider{
 		Name:          name,
 		Endpoint:      "https://example.com/api",
 		ServiceType:   "vm",

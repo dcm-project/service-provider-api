@@ -1,11 +1,11 @@
-package handlers_test
+package provider_test
 
 import (
 	"context"
 
-	"github.com/dcm-project/service-provider-manager/internal/api/server"
-	"github.com/dcm-project/service-provider-manager/internal/handlers"
-	"github.com/dcm-project/service-provider-manager/internal/service"
+	providerserver "github.com/dcm-project/service-provider-manager/internal/api/server/provider"
+	providerhandler "github.com/dcm-project/service-provider-manager/internal/handlers/provider"
+	providersvc "github.com/dcm-project/service-provider-manager/internal/service/provider"
 	"github.com/dcm-project/service-provider-manager/internal/store"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
 	"github.com/google/uuid"
@@ -19,7 +19,7 @@ import (
 var _ = Describe("Handler", func() {
 	var (
 		db      *gorm.DB
-		handler *handlers.Handler
+		handler *providerhandler.Handler
 		ctx     context.Context
 	)
 
@@ -32,8 +32,8 @@ var _ = Describe("Handler", func() {
 		Expect(db.AutoMigrate(&model.Provider{})).To(Succeed())
 
 		dataStore := store.NewStore(db)
-		providerService := service.NewProviderService(dataStore)
-		handler = handlers.NewHandler(providerService)
+		providerService := providersvc.NewProviderService(dataStore)
+		handler = providerhandler.NewHandler(providerService)
 		ctx = context.Background()
 	})
 
@@ -44,10 +44,10 @@ var _ = Describe("Handler", func() {
 
 	Describe("GetHealth", func() {
 		It("returns ok", func() {
-			resp, err := handler.GetHealth(ctx, server.GetHealthRequestObject{})
+			resp, err := handler.GetHealth(ctx, providerserver.GetHealthRequestObject{})
 
 			Expect(err).NotTo(HaveOccurred())
-			jsonResp, ok := resp.(server.GetHealth200JSONResponse)
+			jsonResp, ok := resp.(providerserver.GetHealth200JSONResponse)
 			Expect(ok).To(BeTrue())
 			Expect(*jsonResp.Status).To(Equal("ok"))
 		})
@@ -55,8 +55,8 @@ var _ = Describe("Handler", func() {
 
 	Describe("CreateProvider", func() {
 		It("creates and returns 201", func() {
-			req := server.CreateProviderRequestObject{
-				Body: &server.Provider{
+			req := providerserver.CreateProviderRequestObject{
+				Body: &providerserver.Provider{
 					Name:          "test-provider",
 					Endpoint:      "https://example.com",
 					ServiceType:   "vm",
@@ -67,13 +67,13 @@ var _ = Describe("Handler", func() {
 			resp, err := handler.CreateProvider(ctx, req)
 
 			Expect(err).NotTo(HaveOccurred())
-			_, ok := resp.(server.CreateProvider201JSONResponse)
+			_, ok := resp.(providerserver.CreateProvider201JSONResponse)
 			Expect(ok).To(BeTrue())
 		})
 
 		It("returns 200 for idempotent re-registration", func() {
-			req := server.CreateProviderRequestObject{
-				Body: &server.Provider{
+			req := providerserver.CreateProviderRequestObject{
+				Body: &providerserver.Provider{
 					Name:          "idempotent-provider",
 					Endpoint:      "https://example.com",
 					ServiceType:   "vm",
@@ -84,20 +84,20 @@ var _ = Describe("Handler", func() {
 			// First call creates
 			resp1, err := handler.CreateProvider(ctx, req)
 			Expect(err).NotTo(HaveOccurred())
-			_, ok := resp1.(server.CreateProvider201JSONResponse)
+			_, ok := resp1.(providerserver.CreateProvider201JSONResponse)
 			Expect(ok).To(BeTrue())
 
 			// Second call updates (same name, no ID)
 			resp2, err := handler.CreateProvider(ctx, req)
 			Expect(err).NotTo(HaveOccurred())
-			_, ok = resp2.(server.CreateProvider200JSONResponse)
+			_, ok = resp2.(providerserver.CreateProvider200JSONResponse)
 			Expect(ok).To(BeTrue())
 		})
 
 		It("returns 409 for name conflict with different ID", func() {
 			// Create first provider
-			req1 := server.CreateProviderRequestObject{
-				Body: &server.Provider{
+			req1 := providerserver.CreateProviderRequestObject{
+				Body: &providerserver.Provider{
 					Name:          "conflict-name",
 					Endpoint:      "https://example.com",
 					ServiceType:   "vm",
@@ -109,9 +109,9 @@ var _ = Describe("Handler", func() {
 
 			// Try to create with same name but different ID
 			differentID := uuid.New().String()
-			req2 := server.CreateProviderRequestObject{
-				Params: server.CreateProviderParams{Id: &differentID},
-				Body: &server.Provider{
+			req2 := providerserver.CreateProviderRequestObject{
+				Params: providerserver.CreateProviderParams{Id: &differentID},
+				Body: &providerserver.Provider{
 					Name:          "conflict-name",
 					Endpoint:      "https://other.com",
 					ServiceType:   "vm",
@@ -122,19 +122,19 @@ var _ = Describe("Handler", func() {
 			resp, err := handler.CreateProvider(ctx, req2)
 
 			Expect(err).NotTo(HaveOccurred())
-			_, ok := resp.(server.CreateProvider409ApplicationProblemPlusJSONResponse)
+			_, ok := resp.(providerserver.CreateProvider409ApplicationProblemPlusJSONResponse)
 			Expect(ok).To(BeTrue())
 		})
 	})
 
 	Describe("ListProviders", func() {
 		It("returns empty list initially", func() {
-			req := server.ListProvidersRequestObject{}
+			req := providerserver.ListProvidersRequestObject{}
 
 			resp, err := handler.ListProviders(ctx, req)
 
 			Expect(err).NotTo(HaveOccurred())
-			jsonResp, ok := resp.(server.ListProviders200JSONResponse)
+			jsonResp, ok := resp.(providerserver.ListProviders200JSONResponse)
 			Expect(ok).To(BeTrue())
 			Expect(*jsonResp.Providers).To(BeEmpty())
 		})
@@ -142,8 +142,8 @@ var _ = Describe("Handler", func() {
 		It("returns providers", func() {
 			// Create providers first
 			for _, name := range []string{"provider-1", "provider-2"} {
-				createReq := server.CreateProviderRequestObject{
-					Body: &server.Provider{
+				createReq := providerserver.CreateProviderRequestObject{
+					Body: &providerserver.Provider{
 						Name:          name,
 						Endpoint:      "https://example.com",
 						ServiceType:   "vm",
@@ -154,10 +154,10 @@ var _ = Describe("Handler", func() {
 				Expect(err).NotTo(HaveOccurred())
 			}
 
-			resp, err := handler.ListProviders(ctx, server.ListProvidersRequestObject{})
+			resp, err := handler.ListProviders(ctx, providerserver.ListProvidersRequestObject{})
 
 			Expect(err).NotTo(HaveOccurred())
-			jsonResp, ok := resp.(server.ListProviders200JSONResponse)
+			jsonResp, ok := resp.(providerserver.ListProviders200JSONResponse)
 			Expect(ok).To(BeTrue())
 			Expect(*jsonResp.Providers).To(HaveLen(2))
 		})
@@ -166,8 +166,8 @@ var _ = Describe("Handler", func() {
 	Describe("GetProvider", func() {
 		It("returns provider", func() {
 			// Create a provider first
-			createReq := server.CreateProviderRequestObject{
-				Body: &server.Provider{
+			createReq := providerserver.CreateProviderRequestObject{
+				Body: &providerserver.Provider{
 					Name:          "get-me",
 					Endpoint:      "https://example.com",
 					ServiceType:   "vm",
@@ -175,29 +175,29 @@ var _ = Describe("Handler", func() {
 				},
 			}
 			createResp, _ := handler.CreateProvider(ctx, createReq)
-			created := createResp.(server.CreateProvider201JSONResponse)
+			created := createResp.(providerserver.CreateProvider201JSONResponse)
 
-			req := server.GetProviderRequestObject{
+			req := providerserver.GetProviderRequestObject{
 				ProviderId: *created.Id,
 			}
 
 			resp, err := handler.GetProvider(ctx, req)
 
 			Expect(err).NotTo(HaveOccurred())
-			jsonResp, ok := resp.(server.GetProvider200JSONResponse)
+			jsonResp, ok := resp.(providerserver.GetProvider200JSONResponse)
 			Expect(ok).To(BeTrue())
 			Expect(jsonResp.Name).To(Equal("get-me"))
 		})
 
 		It("returns 404 for non-existent provider", func() {
-			req := server.GetProviderRequestObject{
+			req := providerserver.GetProviderRequestObject{
 				ProviderId: uuid.New().String(),
 			}
 
 			resp, err := handler.GetProvider(ctx, req)
 
 			Expect(err).NotTo(HaveOccurred())
-			_, ok := resp.(server.GetProvider404ApplicationProblemPlusJSONResponse)
+			_, ok := resp.(providerserver.GetProvider404ApplicationProblemPlusJSONResponse)
 			Expect(ok).To(BeTrue())
 		})
 	})
@@ -205,8 +205,8 @@ var _ = Describe("Handler", func() {
 	Describe("ApplyProvider", func() {
 		It("updates existing provider", func() {
 			// Create a provider first
-			createReq := server.CreateProviderRequestObject{
-				Body: &server.Provider{
+			createReq := providerserver.CreateProviderRequestObject{
+				Body: &providerserver.Provider{
 					Name:          "to-update",
 					Endpoint:      "https://example.com",
 					ServiceType:   "vm",
@@ -214,12 +214,12 @@ var _ = Describe("Handler", func() {
 				},
 			}
 			createResp, _ := handler.CreateProvider(ctx, createReq)
-			created := createResp.(server.CreateProvider201JSONResponse)
+			created := createResp.(providerserver.CreateProvider201JSONResponse)
 
 			// Update it
-			updateReq := server.ApplyProviderRequestObject{
+			updateReq := providerserver.ApplyProviderRequestObject{
 				ProviderId: *created.Id,
-				Body: &server.Provider{
+				Body: &providerserver.Provider{
 					Id:            created.Id,
 					Name:          "to-update",
 					Endpoint:      "https://updated.example.com",
@@ -231,15 +231,15 @@ var _ = Describe("Handler", func() {
 			resp, err := handler.ApplyProvider(ctx, updateReq)
 
 			Expect(err).NotTo(HaveOccurred())
-			jsonResp, ok := resp.(server.ApplyProvider200JSONResponse)
+			jsonResp, ok := resp.(providerserver.ApplyProvider200JSONResponse)
 			Expect(ok).To(BeTrue())
 			Expect(jsonResp.Endpoint).To(Equal("https://updated.example.com"))
 		})
 
 		It("returns 404 for non-existent provider", func() {
-			req := server.ApplyProviderRequestObject{
+			req := providerserver.ApplyProviderRequestObject{
 				ProviderId: uuid.New().String(),
-				Body: &server.Provider{
+				Body: &providerserver.Provider{
 					Name:          "test",
 					Endpoint:      "https://example.com",
 					ServiceType:   "vm",
@@ -250,7 +250,7 @@ var _ = Describe("Handler", func() {
 			resp, err := handler.ApplyProvider(ctx, req)
 
 			Expect(err).NotTo(HaveOccurred())
-			_, ok := resp.(server.ApplyProvider404ApplicationProblemPlusJSONResponse)
+			_, ok := resp.(providerserver.ApplyProvider404ApplicationProblemPlusJSONResponse)
 			Expect(ok).To(BeTrue())
 		})
 	})
@@ -258,8 +258,8 @@ var _ = Describe("Handler", func() {
 	Describe("DeleteProvider", func() {
 		It("deletes provider and returns 204", func() {
 			// Create a provider first
-			createReq := server.CreateProviderRequestObject{
-				Body: &server.Provider{
+			createReq := providerserver.CreateProviderRequestObject{
+				Body: &providerserver.Provider{
 					Name:          "to-delete",
 					Endpoint:      "https://example.com",
 					ServiceType:   "vm",
@@ -267,28 +267,28 @@ var _ = Describe("Handler", func() {
 				},
 			}
 			createResp, _ := handler.CreateProvider(ctx, createReq)
-			created := createResp.(server.CreateProvider201JSONResponse)
+			created := createResp.(providerserver.CreateProvider201JSONResponse)
 
-			req := server.DeleteProviderRequestObject{
+			req := providerserver.DeleteProviderRequestObject{
 				ProviderId: *created.Id,
 			}
 
 			resp, err := handler.DeleteProvider(ctx, req)
 
 			Expect(err).NotTo(HaveOccurred())
-			_, ok := resp.(server.DeleteProvider204Response)
+			_, ok := resp.(providerserver.DeleteProvider204Response)
 			Expect(ok).To(BeTrue())
 		})
 
 		It("returns 404 for non-existent provider", func() {
-			req := server.DeleteProviderRequestObject{
+			req := providerserver.DeleteProviderRequestObject{
 				ProviderId: uuid.New().String(),
 			}
 
 			resp, err := handler.DeleteProvider(ctx, req)
 
 			Expect(err).NotTo(HaveOccurred())
-			_, ok := resp.(server.DeleteProvider404ApplicationProblemPlusJSONResponse)
+			_, ok := resp.(providerserver.DeleteProvider404ApplicationProblemPlusJSONResponse)
 			Expect(ok).To(BeTrue())
 		})
 	})

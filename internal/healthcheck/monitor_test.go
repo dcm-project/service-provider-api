@@ -8,8 +8,8 @@ import (
 
 	"github.com/dcm-project/service-provider-manager/internal/config"
 	"github.com/dcm-project/service-provider-manager/internal/healthcheck"
-	"github.com/dcm-project/service-provider-manager/internal/store"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
+	providerstore "github.com/dcm-project/service-provider-manager/internal/store/provider"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -59,11 +59,11 @@ func (m *mockProviderStore) UpdateHealthStatus(_ context.Context, id string, sta
 	return nil
 }
 
-func (m *mockProviderStore) List(_ context.Context, _ *store.ProviderFilter, _ *store.Pagination) (model.ProviderList, error) {
+func (m *mockProviderStore) List(_ context.Context, _ *providerstore.ProviderFilter, _ *providerstore.Pagination) (model.ProviderList, error) {
 	return m.providers, nil
 }
 
-func (m *mockProviderStore) Count(_ context.Context, _ *store.ProviderFilter) (int64, error) {
+func (m *mockProviderStore) Count(_ context.Context, _ *providerstore.ProviderFilter) (int64, error) {
 	return int64(len(m.providers)), nil
 }
 

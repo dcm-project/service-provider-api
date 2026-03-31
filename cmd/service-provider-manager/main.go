@@ -12,11 +12,11 @@ import (
 	"github.com/dcm-project/service-provider-manager/internal/cleanup"
 	"github.com/dcm-project/service-provider-manager/internal/config"
 	"github.com/dcm-project/service-provider-manager/internal/consumer"
-	"github.com/dcm-project/service-provider-manager/internal/handlers"
+	providerhandler "github.com/dcm-project/service-provider-manager/internal/handlers/provider"
 	rmhandlers "github.com/dcm-project/service-provider-manager/internal/handlers/resource_manager"
 	"github.com/dcm-project/service-provider-manager/internal/healthcheck"
 	"github.com/dcm-project/service-provider-manager/internal/logging"
-	"github.com/dcm-project/service-provider-manager/internal/service"
+	providersvc "github.com/dcm-project/service-provider-manager/internal/service/provider"
 	rmsvc "github.com/dcm-project/service-provider-manager/internal/service/resource_manager"
 	"github.com/dcm-project/service-provider-manager/internal/store"
 )
@@ -57,8 +57,8 @@ func run() int {
 	}()
 
 	// Provider API
-	providerService := service.NewProviderService(dataStore)
-	providerHandler := handlers.NewHandler(providerService)
+	providerService := providersvc.NewProviderService(dataStore)
+	providerHandler := providerhandler.NewHandler(providerService)
 
 	// Resource Manager API
 	instanceService := rmsvc.NewInstanceService(dataStore)

@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/dcm-project/service-provider-manager/internal/config"
-	"github.com/dcm-project/service-provider-manager/internal/store"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
+	providerstore "github.com/dcm-project/service-provider-manager/internal/store/provider"
 )
 
 // Monitor performs periodic health checks on registered service providers
 type Monitor struct {
-	store                  store.Provider
+	store                  providerstore.Provider
 	httpClient             *http.Client
 	interval               time.Duration
 	stopCh                 chan struct{}
@@ -28,7 +28,7 @@ type Monitor struct {
 }
 
 // NewMonitor creates a new health check monitor
-func NewMonitor(providerStore store.Provider, config *config.HealthCheckConfig) *Monitor {
+func NewMonitor(providerStore providerstore.Provider, config *config.HealthCheckConfig) *Monitor {
 	return &Monitor{
 		store: providerStore,
 		httpClient: &http.Client{

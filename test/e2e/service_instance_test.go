@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/dcm-project/service-provider-manager/api/v1alpha1"
+	providerapi "github.com/dcm-project/service-provider-manager/api/v1alpha1/provider"
 	"github.com/dcm-project/service-provider-manager/api/v1alpha1/resource_manager"
-	"github.com/dcm-project/service-provider-manager/pkg/client"
+	providerclient "github.com/dcm-project/service-provider-manager/pkg/client/provider"
 	rmClient "github.com/dcm-project/service-provider-manager/pkg/client/resource_manager"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -19,7 +19,7 @@ import (
 var _ = Describe("Service Instance API", func() {
 	var (
 		rmApiClient  *rmClient.ClientWithResponses
-		apiClient    *client.ClientWithResponses
+		apiClient    *providerclient.ClientWithResponses
 		ctx          context.Context
 		providerID   string
 		providerName string
@@ -35,7 +35,7 @@ var _ = Describe("Service Instance API", func() {
 		rmApiClient, err = rmClient.NewClientWithResponses(baseURL)
 		Expect(err).NotTo(HaveOccurred())
 
-		apiClient, err = client.NewClientWithResponses(baseURL)
+		apiClient, err = providerclient.NewClientWithResponses(baseURL)
 		Expect(err).NotTo(HaveOccurred())
 
 		ctx = context.Background()
@@ -46,7 +46,7 @@ var _ = Describe("Service Instance API", func() {
 		stubProviderDeleteInstance()
 
 		providerName = "e2e-provider-" + uuid.New().String()[:8]
-		createResp, err := apiClient.CreateProviderWithResponse(ctx, nil, v1alpha1.Provider{
+		createResp, err := apiClient.CreateProviderWithResponse(ctx, nil, providerapi.Provider{
 			Name:          providerName,
 			Endpoint:      providerEndpoint(),
 			ServiceType:   "vm",
@@ -133,7 +133,7 @@ var _ = Describe("Service Instance API", func() {
 
 		It("returns 422 when provider health status is not Ready", func() {
 			unhealthyName := "unhealthy-provider-" + uuid.New().String()[:8]
-			createProviderResp, err := apiClient.CreateProviderWithResponse(ctx, nil, v1alpha1.Provider{
+			createProviderResp, err := apiClient.CreateProviderWithResponse(ctx, nil, providerapi.Provider{
 				Name:          unhealthyName,
 				Endpoint:      "http://invalid-endpoint-does-not-exist.local/api",
 				ServiceType:   "vm",

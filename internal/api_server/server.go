@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dcm-project/service-provider-manager/api/v1alpha1"
+	providerapi "github.com/dcm-project/service-provider-manager/api/v1alpha1/provider"
 	"github.com/dcm-project/service-provider-manager/api/v1alpha1/resource_manager"
-	"github.com/dcm-project/service-provider-manager/internal/api/server"
+	providerserver "github.com/dcm-project/service-provider-manager/internal/api/server/provider"
 	rmserver "github.com/dcm-project/service-provider-manager/internal/api/server/resource_manager"
 	"github.com/dcm-project/service-provider-manager/internal/config"
 	"github.com/dcm-project/service-provider-manager/internal/logging"
@@ -29,11 +29,11 @@ const gracefulShutdownTimeout = 5 * time.Second
 type Server struct {
 	cfg             *config.Config
 	listener        net.Listener
-	providerHandler server.StrictServerInterface
+	providerHandler providerserver.StrictServerInterface
 	rmHandler       rmserver.StrictServerInterface
 }
 
-func New(cfg *config.Config, listener net.Listener, providerHandler server.StrictServerInterface, rmHandler rmserver.StrictServerInterface) *Server {
+func New(cfg *config.Config, listener net.Listener, providerHandler providerserver.StrictServerInterface, rmHandler rmserver.StrictServerInterface) *Server {
 	return &Server{
 		cfg:             cfg,
 		listener:        listener,
@@ -50,7 +50,7 @@ func (s *Server) Run(ctx context.Context) error {
 	router.Use(middleware.Recoverer)
 
 	// Load both OpenAPI specs for validation
-	providerSwagger, err := v1alpha1.GetSwagger()
+	providerSwagger, err := providerapi.GetSwagger()
 	if err != nil {
 		return fmt.Errorf("load Provider OpenAPI spec: %w", err)
 	}
@@ -67,8 +67,8 @@ func (s *Server) Run(ctx context.Context) error {
 	apiRouter.Use(s.validationMiddleware(providerSwagger, rmSwagger))
 
 	// Register both handler sets
-	server.HandlerFromMux(
-		server.NewStrictHandler(s.providerHandler, nil),
+	providerserver.HandlerFromMux(
+		providerserver.NewStrictHandler(s.providerHandler, nil),
 		apiRouter,
 	)
 

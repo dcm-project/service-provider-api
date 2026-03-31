@@ -12,6 +12,7 @@ import (
 	"github.com/dcm-project/service-provider-manager/internal/service"
 	"github.com/dcm-project/service-provider-manager/internal/store"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
+	providerstore "github.com/dcm-project/service-provider-manager/internal/store/provider"
 	rmstore "github.com/dcm-project/service-provider-manager/internal/store/resource_manager"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
@@ -44,7 +45,7 @@ func (s *InstanceService) CreateInstance(ctx context.Context, request *resource_
 
 	provider, err := s.store.Provider().GetByName(ctx, providerName)
 	if err != nil {
-		if errors.Is(err, store.ErrProviderNotFound) {
+		if errors.Is(err, providerstore.ErrProviderNotFound) {
 			return nil, service.NewNotFoundError(fmt.Sprintf("provider '%s' not found", providerName))
 		}
 		log.Error("Failed to retrieve provider", "provider_name", providerName, "error", err)
@@ -226,7 +227,7 @@ func (s *InstanceService) DeleteFromProvider(ctx context.Context, instance *mode
 
 	provider, err := s.store.Provider().GetByName(ctx, instance.ProviderName)
 	if err != nil {
-		if errors.Is(err, store.ErrProviderNotFound) {
+		if errors.Is(err, providerstore.ErrProviderNotFound) {
 			return fmt.Errorf("provider '%s' not found", instance.ProviderName)
 		}
 		return fmt.Errorf("failed to retrieve provider: %w", err)

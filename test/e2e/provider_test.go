@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/dcm-project/service-provider-manager/api/v1alpha1"
-	"github.com/dcm-project/service-provider-manager/pkg/client"
+	providerapi "github.com/dcm-project/service-provider-manager/api/v1alpha1/provider"
+	providerclient "github.com/dcm-project/service-provider-manager/pkg/client/provider"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,7 +16,7 @@ import (
 
 var _ = Describe("Provider API", func() {
 	var (
-		apiClient *client.ClientWithResponses
+		apiClient *providerclient.ClientWithResponses
 		ctx       context.Context
 	)
 
@@ -27,7 +27,7 @@ var _ = Describe("Provider API", func() {
 		}
 
 		var err error
-		apiClient, err = client.NewClientWithResponses(baseURL)
+		apiClient, err = providerclient.NewClientWithResponses(baseURL)
 		Expect(err).NotTo(HaveOccurred())
 
 		ctx = context.Background()
@@ -47,7 +47,7 @@ var _ = Describe("Provider API", func() {
 	Describe("Provider CRUD", func() {
 		It("creates, reads, updates, and deletes a provider", func() {
 			By("creating a new provider")
-			createResp, err := apiClient.CreateProviderWithResponse(ctx, nil, v1alpha1.Provider{
+			createResp, err := apiClient.CreateProviderWithResponse(ctx, nil, providerapi.Provider{
 				Name:          "e2e-test-provider",
 				Endpoint:      "https://example.com/api",
 				ServiceType:   "vm",
@@ -57,7 +57,7 @@ var _ = Describe("Provider API", func() {
 			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
 			Expect(createResp.JSON201).NotTo(BeNil())
 			Expect(createResp.JSON201.Id).NotTo(BeNil())
-			Expect(*createResp.JSON201.Status).To(Equal(v1alpha1.Registered))
+			Expect(*createResp.JSON201.Status).To(Equal(providerapi.Registered))
 
 			providerID := *createResp.JSON201.Id
 
@@ -68,7 +68,7 @@ var _ = Describe("Provider API", func() {
 			Expect(getResp.JSON200.Name).To(Equal("e2e-test-provider"))
 
 			By("re-registering without ID (idempotent update)")
-			reregResp, err := apiClient.CreateProviderWithResponse(ctx, nil, v1alpha1.Provider{
+			reregResp, err := apiClient.CreateProviderWithResponse(ctx, nil, providerapi.Provider{
 				Name:          "e2e-test-provider",
 				Endpoint:      "https://updated.example.com/api",
 				ServiceType:   "vm",
@@ -77,7 +77,7 @@ var _ = Describe("Provider API", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(reregResp.StatusCode()).To(Equal(http.StatusOK))
 			Expect(reregResp.JSON200).NotTo(BeNil())
-			Expect(*reregResp.JSON200.Status).To(Equal(v1alpha1.Updated))
+			Expect(*reregResp.JSON200.Status).To(Equal(providerapi.Updated))
 			Expect(*reregResp.JSON200.Id).To(Equal(providerID))
 
 			By("listing providers")
@@ -88,7 +88,7 @@ var _ = Describe("Provider API", func() {
 			Expect(len(*listResp.JSON200.Providers)).To(BeNumerically(">=", 1))
 
 			By("updating the provider")
-			updateResp, err := apiClient.ApplyProviderWithResponse(ctx, providerID, v1alpha1.Provider{
+			updateResp, err := apiClient.ApplyProviderWithResponse(ctx, providerID, providerapi.Provider{
 				Name:          "e2e-test-provider-updated",
 				Endpoint:      "https://updated.example.com/api",
 				ServiceType:   "vm",
@@ -114,7 +114,7 @@ var _ = Describe("Provider API", func() {
 		var providerID string
 
 		BeforeEach(func() {
-			resp, err := apiClient.CreateProviderWithResponse(ctx, nil, v1alpha1.Provider{
+			resp, err := apiClient.CreateProviderWithResponse(ctx, nil, providerapi.Provider{
 				Name:          "conflict-test-provider",
 				Endpoint:      "https://example.com/api",
 				ServiceType:   "vm",
@@ -131,9 +131,9 @@ var _ = Describe("Provider API", func() {
 
 		It("returns 409 when registering same name with different ID", func() {
 			newID := uuid.New().String()
-			params := &v1alpha1.CreateProviderParams{Id: &newID}
+			params := &providerapi.CreateProviderParams{Id: &newID}
 
-			resp, err := apiClient.CreateProviderWithResponse(ctx, params, v1alpha1.Provider{
+			resp, err := apiClient.CreateProviderWithResponse(ctx, params, providerapi.Provider{
 				Name:          "conflict-test-provider",
 				Endpoint:      "https://other.example.com/api",
 				ServiceType:   "vm",
