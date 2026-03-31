@@ -92,7 +92,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 			seeded := newServiceTypeInstance(kubevirtProvider, "get-inst", map[string]any{"cpu": 1})
 			addInstanceToStore(seeded)
 
-			found, err := s.Get(ctx, seeded.ID)
+			found, err := s.Get(ctx, seeded.ID, false)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(found).NotTo(BeNil())
@@ -101,7 +101,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 		})
 
 		It("returns ErrInstanceNotFound for missing ID", func() {
-			_, err := s.Get(ctx, uuid.New().String())
+			_, err := s.Get(ctx, uuid.New().String(), false)
 			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
 		})
 	})
@@ -157,26 +157,25 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 		})
 	})
 
-	Describe("Delete", func() {
+	Describe("HardDelete", func() {
 		It("removes the instance", func() {
 			instance := newServiceTypeInstance(kubevirtProvider, "to-delete", map[string]any{})
 			addInstanceToStore(instance)
 
-			Expect(s.Delete(ctx, instance.ID)).To(Succeed())
+			Expect(s.HardDelete(ctx, instance.ID)).To(Succeed())
 
-			_, err := s.Get(ctx, instance.ID)
+			_, err := s.Get(ctx, instance.ID, false)
 			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
 		})
 
 		It("returns ErrInstanceNotFound for missing ID", func() {
-			err := s.Delete(ctx, uuid.New().String())
+			err := s.HardDelete(ctx, uuid.New().String())
 			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
 		})
 
 		It("does not retry on permanent errors (not found)", func() {
-			// Delete non-existent instance - should fail immediately without retries
 			nonExistentID := uuid.New().String()
-			err := s.Delete(ctx, nonExistentID)
+			err := s.HardDelete(ctx, nonExistentID)
 
 			// Should return ErrInstanceNotFound immediately (permanent error)
 			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
@@ -191,7 +190,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 			err := s.UpdateStatus(ctx, instance.ID, "RUNNING", "VM is running")
 			Expect(err).NotTo(HaveOccurred())
 
-			found, err := s.Get(ctx, instance.ID)
+			found, err := s.Get(ctx, instance.ID, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(found.Status).To(Equal("RUNNING"))
 			Expect(found.StatusMessage).To(Equal("VM is running"))
@@ -200,6 +199,177 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 		It("returns ErrInstanceNotFound for non-existent instance", func() {
 			err := s.UpdateStatus(ctx, "non-existent", "RUNNING", "message")
 			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
+		})
+	})
+
+	Describe("MarkForDeletion", func() {
+		It("sets deletion_status to PENDING", func() {
+			instance := newServiceTypeInstance(kubevirtProvider, "mark-del", map[string]any{})
+			addInstanceToStore(instance)
+
+			Expect(s.MarkForDeletion(ctx, instance.ID)).To(Succeed())
+
+			found, err := s.Get(ctx, instance.ID, true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*found.DeletionStatus).To(Equal("PENDING"))
+			Expect(found.RetryCount).To(Equal(0))
+			Expect(found.DeletionRequestedAt).NotTo(BeNil())
+		})
+
+		It("hides instance from default Get", func() {
+			instance := newServiceTypeInstance(kubevirtProvider, "mark-hidden", map[string]any{})
+			addInstanceToStore(instance)
+
+			Expect(s.MarkForDeletion(ctx, instance.ID)).To(Succeed())
+
+			_, err := s.Get(ctx, instance.ID, false)
+			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
+		})
+
+		It("returns ErrInstanceNotFound for missing ID", func() {
+			err := s.MarkForDeletion(ctx, uuid.New().String())
+			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
+		})
+	})
+
+	Describe("ListPendingDeletions", func() {
+		It("returns only PENDING instances", func() {
+			inst1 := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "pending1", map[string]any{}))
+			inst2 := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "pending2", map[string]any{}))
+			addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "active", map[string]any{}))
+
+			Expect(s.MarkForDeletion(ctx, inst1.ID)).To(Succeed())
+			Expect(s.MarkForDeletion(ctx, inst2.ID)).To(Succeed())
+
+			pending, err := s.ListPendingDeletions(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pending).To(HaveLen(2))
+		})
+
+		It("excludes FAILED instances", func() {
+			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "failed", map[string]any{}))
+			Expect(s.MarkForDeletion(ctx, inst.ID)).To(Succeed())
+			Expect(s.MarkDeletionFailed(ctx, inst.ID)).To(Succeed())
+
+			pending, err := s.ListPendingDeletions(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pending).To(BeEmpty())
+		})
+
+		It("returns empty when no pending deletions exist", func() {
+			addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "active", map[string]any{}))
+
+			pending, err := s.ListPendingDeletions(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pending).To(BeEmpty())
+		})
+	})
+
+	Describe("IncrementDeletionRetry", func() {
+		It("increments retry count and sets last_deletion_attempt", func() {
+			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "retry-inst", map[string]any{}))
+			Expect(s.MarkForDeletion(ctx, inst.ID)).To(Succeed())
+
+			Expect(s.IncrementDeletionRetry(ctx, inst.ID)).To(Succeed())
+
+			found, err := s.Get(ctx, inst.ID, true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(found.RetryCount).To(Equal(1))
+			Expect(found.LastDeletionAttempt).NotTo(BeNil())
+
+			Expect(s.IncrementDeletionRetry(ctx, inst.ID)).To(Succeed())
+
+			found, err = s.Get(ctx, inst.ID, true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(found.RetryCount).To(Equal(2))
+		})
+
+		It("returns ErrInstanceNotFound for missing ID", func() {
+			err := s.IncrementDeletionRetry(ctx, uuid.New().String())
+			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
+		})
+	})
+
+	Describe("MarkDeletionFailed", func() {
+		It("sets deletion_status to FAILED", func() {
+			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "fail-inst", map[string]any{}))
+			Expect(s.MarkForDeletion(ctx, inst.ID)).To(Succeed())
+
+			Expect(s.MarkDeletionFailed(ctx, inst.ID)).To(Succeed())
+
+			found, err := s.Get(ctx, inst.ID, true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*found.DeletionStatus).To(Equal("FAILED"))
+		})
+
+		It("returns ErrInstanceNotFound for missing ID", func() {
+			err := s.MarkDeletionFailed(ctx, uuid.New().String())
+			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
+		})
+	})
+
+	Describe("ResetRetryCount", func() {
+		It("resets retry count and status to PENDING", func() {
+			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "reset-inst", map[string]any{}))
+			Expect(s.MarkForDeletion(ctx, inst.ID)).To(Succeed())
+			Expect(s.IncrementDeletionRetry(ctx, inst.ID)).To(Succeed())
+			Expect(s.IncrementDeletionRetry(ctx, inst.ID)).To(Succeed())
+			Expect(s.MarkDeletionFailed(ctx, inst.ID)).To(Succeed())
+
+			Expect(s.ResetRetryCount(ctx, inst.ID)).To(Succeed())
+
+			found, err := s.Get(ctx, inst.ID, true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*found.DeletionStatus).To(Equal("PENDING"))
+			Expect(found.RetryCount).To(Equal(0))
+			Expect(found.LastDeletionAttempt).To(BeNil())
+		})
+
+		It("returns ErrInstanceNotFound for missing ID", func() {
+			err := s.ResetRetryCount(ctx, uuid.New().String())
+			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
+		})
+	})
+
+	Describe("Get with showDeleted", func() {
+		It("returns soft-deleted instance when showDeleted is true", func() {
+			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "soft-del", map[string]any{}))
+			Expect(s.MarkForDeletion(ctx, inst.ID)).To(Succeed())
+
+			found, err := s.Get(ctx, inst.ID, true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(found.ID).To(Equal(inst.ID))
+			Expect(*found.DeletionStatus).To(Equal("PENDING"))
+		})
+
+		It("returns not found for soft-deleted instance when showDeleted is false", func() {
+			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "soft-del2", map[string]any{}))
+			Expect(s.MarkForDeletion(ctx, inst.ID)).To(Succeed())
+
+			_, err := s.Get(ctx, inst.ID, false)
+			Expect(err).To(MatchError(rmstore.ErrInstanceNotFound))
+		})
+	})
+
+	Describe("List with ShowDeleted", func() {
+		It("excludes soft-deleted instances by default", func() {
+			addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "active", map[string]any{}))
+			deleted := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "deleted", map[string]any{}))
+			Expect(s.MarkForDeletion(ctx, deleted.ID)).To(Succeed())
+
+			result, err := s.List(ctx, &rmstore.ServiceTypeInstanceListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Instances).To(HaveLen(1))
+		})
+
+		It("includes soft-deleted instances when ShowDeleted is true", func() {
+			addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "active", map[string]any{}))
+			deleted := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "deleted", map[string]any{}))
+			Expect(s.MarkForDeletion(ctx, deleted.ID)).To(Succeed())
+
+			result, err := s.List(ctx, &rmstore.ServiceTypeInstanceListOptions{ShowDeleted: true})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Instances).To(HaveLen(2))
 		})
 	})
 

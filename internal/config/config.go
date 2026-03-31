@@ -13,6 +13,13 @@ type Config struct {
 	Service     *ServiceConfig
 	HealthCheck *HealthCheckConfig
 	NATS        *NATSConfig
+	Cleanup     *CleanupConfig
+}
+
+type CleanupConfig struct {
+	Interval   time.Duration `envconfig:"CLEANUP_INTERVAL" default:"1m"`
+	MaxRetries int           `envconfig:"CLEANUP_MAX_RETRIES" default:"10"`
+	Timeout    time.Duration `envconfig:"CLEANUP_TIMEOUT" default:"10s"`
 }
 
 type HealthCheckConfig struct {

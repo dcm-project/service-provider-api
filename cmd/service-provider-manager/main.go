@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	apiserver "github.com/dcm-project/service-provider-manager/internal/api_server"
+	"github.com/dcm-project/service-provider-manager/internal/cleanup"
 	"github.com/dcm-project/service-provider-manager/internal/config"
 	"github.com/dcm-project/service-provider-manager/internal/consumer"
 	"github.com/dcm-project/service-provider-manager/internal/handlers"
@@ -102,6 +103,12 @@ func run() int {
 	healthMonitor.Start(ctx)
 	defer healthMonitor.Stop()
 	slog.Info("Health check monitor started", "interval", cfg.HealthCheck.Interval)
+
+	// Start cleanup scheduler for deferred deletions
+	cleanupScheduler := cleanup.NewScheduler(dataStore, instanceService, cfg.Cleanup)
+	cleanupScheduler.Start(ctx)
+	defer cleanupScheduler.Stop()
+	slog.Info("Cleanup scheduler started", "interval", cfg.Cleanup.Interval, "max_retries", cfg.Cleanup.MaxRetries)
 
 	slog.Info("Starting server", "address", listener.Addr().String())
 	if err := srv.Run(ctx); err != nil {

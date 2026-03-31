@@ -107,3 +107,56 @@ func stubProviderDeleteInstance() {
 	body, _ := json.Marshal(stub)
 	http.Post(wireMockURL()+"/__admin/mappings", "application/json", bytes.NewReader(body))
 }
+
+func stubProviderDeleteInstanceFailure() {
+	stub := map[string]interface{}{
+		"request": map[string]interface{}{
+			"method":         "DELETE",
+			"urlPathPattern": "/.*",
+		},
+		"response": map[string]interface{}{
+			"status": 500,
+			"headers": map[string]string{
+				"Content-Type": "application/json",
+			},
+			"jsonBody": map[string]interface{}{
+				"error": "internal server error",
+			},
+		},
+	}
+
+	body, _ := json.Marshal(stub)
+	http.Post(wireMockURL()+"/__admin/mappings", "application/json", bytes.NewReader(body))
+}
+
+func clearDeleteStubAndStubFailure() {
+	// Remove all existing mappings for DELETE and re-stub with failure
+	resetDeleteStubs()
+	stubProviderDeleteInstanceFailure()
+}
+
+func resetDeleteStubs() {
+	// Get all mappings and remove DELETE ones
+	resp, err := http.Get(wireMockURL() + "/__admin/mappings")
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Mappings []struct {
+			ID      string `json:"id"`
+			Request struct {
+				Method string `json:"method"`
+			} `json:"request"`
+		} `json:"mappings"`
+	}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	for _, m := range result.Mappings {
+		if m.Request.Method == "DELETE" {
+			req, _ := http.NewRequest(http.MethodDelete, wireMockURL()+"/__admin/mappings/"+m.ID, nil)
+			http.DefaultClient.Do(req)
+		}
+	}
+}

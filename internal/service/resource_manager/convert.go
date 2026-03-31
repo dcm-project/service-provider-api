@@ -19,7 +19,7 @@ func ModelToAPI(instance *model.ServiceTypeInstance) *resource_manager.ServiceTy
 	id := instance.ID
 	path := fmt.Sprintf("service-type-instances/%s", id)
 
-	return &resource_manager.ServiceTypeInstance{
+	result := &resource_manager.ServiceTypeInstance{
 		Id:           &id,
 		Path:         &path,
 		ProviderName: instance.ProviderName,
@@ -28,4 +28,11 @@ func ModelToAPI(instance *model.ServiceTypeInstance) *resource_manager.ServiceTy
 		CreateTime:   service.PtrTime(instance.CreateTime),
 		UpdateTime:   service.PtrTime(instance.UpdateTime),
 	}
+
+	if instance.DeletionStatus != nil {
+		ds := resource_manager.ServiceTypeInstanceDeletionStatus(*instance.DeletionStatus)
+		result.DeletionStatus = &ds
+	}
+
+	return result
 }

@@ -49,6 +49,14 @@ paths:
           description: Filter service provider
           schema:
             type: string
+        - name: show_deleted
+          in: query
+          description: |
+            If true, soft-deleted instances are included in the results
+            alongside active instances. Defaults to false.
+          schema:
+            type: boolean
+            default: false
         - name: max_page_size
           in: query
           description: Maximum number of results per page
@@ -154,6 +162,14 @@ paths:
       description: Get an instance by its unique ID
       parameters:
         - $ref: '#/components/parameters/InstanceIdPath'
+        - name: show_deleted
+          in: query
+          description: |
+            If true, soft-deleted instances are returned instead of 404.
+            Defaults to false.
+          schema:
+            type: boolean
+            default: false
       responses:
         '200':
           description: Successful operation
@@ -185,9 +201,20 @@ paths:
         - instance
       summary: Delete an instance
       operationId: deleteInstance
-      description: Remove an instance
+      description: |
+        Remove an instance. When `deferred` is true, deletion failures are
+        recorded in a cleanup queue and the request returns success. This is
+        used during rehydration flows to avoid blocking on provider errors.
       parameters:
         - $ref: '#/components/parameters/InstanceIdPath'
+        - name: deferred
+          in: query
+          description: |
+            When true, deletion failures are deferred to a cleanup queue
+            instead of returning an error. Used during rehydration flows.
+          schema:
+            type: boolean
+            default: false
       responses:
         '204':
           description: Instance deleted successfully
@@ -259,6 +286,14 @@ components:
           readOnly: true
           description: Status of the instance
           example: "READY"
+        deletion_status:
+          type: string
+          readOnly: true
+          description: |
+            Deletion status for deferred deletions. Absent for active
+            instances. PENDING indicates the instance is queued for cleanup.
+            FAILED indicates the cleanup has exceeded maximum retries.
+          enum: [PENDING, FAILED]
         spec:
           type: object
           description: |

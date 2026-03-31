@@ -93,11 +93,11 @@ func (s *InstanceService) CreateInstance(ctx context.Context, request *resource_
 }
 
 // GetInstance retrieves an instance by ID
-func (s *InstanceService) GetInstance(ctx context.Context, instanceID string) (*resource_manager.ServiceTypeInstance, error) {
+func (s *InstanceService) GetInstance(ctx context.Context, instanceID string, showDeleted bool) (*resource_manager.ServiceTypeInstance, error) {
 	log := logging.FromContext(ctx)
-	log.Debug("Getting instance", "instance_id", instanceID)
+	log.Debug("Getting instance", "instance_id", instanceID, "show_deleted", showDeleted)
 
-	instance, err := s.store.ServiceTypeInstance().Get(ctx, instanceID)
+	instance, err := s.store.ServiceTypeInstance().Get(ctx, instanceID, showDeleted)
 	if err != nil {
 		if errors.Is(err, rmstore.ErrInstanceNotFound) {
 			return nil, service.NewNotFoundError(fmt.Sprintf("instance %s not found", instanceID))
@@ -110,15 +110,17 @@ func (s *InstanceService) GetInstance(ctx context.Context, instanceID string) (*
 }
 
 // ListInstances returns instances with optional filtering and pagination
-func (s *InstanceService) ListInstances(ctx context.Context, providerName *string, maxPageSize *int, pageToken *string) (*resource_manager.ServiceTypeInstanceList, error) {
+func (s *InstanceService) ListInstances(ctx context.Context, providerName *string, showDeleted bool, maxPageSize *int, pageToken *string) (*resource_manager.ServiceTypeInstanceList, error) {
 	log := logging.FromContext(ctx)
 	log.Debug("Listing instances",
 		"provider_filter", providerName,
 		"page_size", maxPageSize,
+		"show_deleted", showDeleted,
 	)
 
 	opts := &rmstore.ServiceTypeInstanceListOptions{
 		ProviderName: providerName,
+		ShowDeleted:  showDeleted,
 	}
 
 	// Apply max page size (default 50, max 100)
@@ -159,12 +161,14 @@ func (s *InstanceService) ListInstances(ctx context.Context, providerName *strin
 	return apiResult, nil
 }
 
-// DeleteInstance removes an instance by ID
-func (s *InstanceService) DeleteInstance(ctx context.Context, instanceID string) error {
+// DeleteInstance removes an instance by ID. When deferred is true, deletion
+// failures are recorded in a cleanup queue and the method returns success.
+func (s *InstanceService) DeleteInstance(ctx context.Context, instanceID string, deferred bool) error {
 	log := logging.FromContext(ctx)
-	log.Debug("Deleting instance", "instance_id", instanceID)
+	log.Debug("Deleting instance", "instance_id", instanceID, "deferred", deferred)
 
-	instance, err := s.store.ServiceTypeInstance().Get(ctx, instanceID)
+	// Get instance to find provider (include soft-deleted so we can retry cleanup)
+	instance, err := s.store.ServiceTypeInstance().Get(ctx, instanceID, true)
 	if err != nil {
 		if errors.Is(err, rmstore.ErrInstanceNotFound) {
 			return service.NewNotFoundError(fmt.Sprintf("instance %s not found", instanceID))
@@ -173,34 +177,75 @@ func (s *InstanceService) DeleteInstance(ctx context.Context, instanceID string)
 		return service.NewInternalError(fmt.Sprintf("failed to retrieve instance: %v", err))
 	}
 
-	// Get provider to send delete request
-	provider, err := s.store.Provider().GetByName(ctx, instance.ProviderName)
-	if err != nil && !errors.Is(err, store.ErrProviderNotFound) {
-		log.Error("Failed to retrieve provider for deletion", "instance_id", instanceID, "provider_name", instance.ProviderName, "error", err)
-		return service.NewInternalError(fmt.Sprintf("failed to retrieve provider: %v", err))
+	// Attempt SP deletion and DB hard-delete
+	deleteErr := s.DeleteFromProvider(ctx, instance)
+	if deleteErr == nil {
+		return nil
 	}
 
-	// Send delete request to provider if provider still exists
-	if provider != nil {
-		log.Debug("Deleting instance from provider", "instance_id", instanceID, "provider_name", provider.Name)
-		err = s.deleteInstanceWithProvider(ctx, provider.Endpoint, instanceID)
-		if err != nil {
-			log.Error("Provider deletion failed", "instance_id", instanceID, "provider_name", provider.Name, "error", err)
-			return service.NewProviderError(fmt.Sprintf("failed to delete instance (%s): %v", instanceID, err))
+	log.Error(
+		"Failed to delete instance from provider",
+		"instance_id", instance.ID,
+		"provider_name", instance.ProviderName,
+		"error", deleteErr,
+	)
+
+	// SP deletion failed
+	if !deferred {
+		// For already-pending/failed instances, reset retry count so scheduler picks it up again
+		if instance.DeletionStatus != nil {
+			if resetErr := s.store.ServiceTypeInstance().ResetRetryCount(ctx, instanceID); resetErr != nil {
+				log.Error("Failed to reset retry count for instance", "instance_id", instanceID, "error", resetErr)
+			}
+		}
+		return service.NewProviderError(fmt.Sprintf("failed to delete instance (%s): %v", instanceID, deleteErr))
+	}
+
+	// Deferred mode: mark for deletion (or reset retry count if already pending/failed)
+	if instance.DeletionStatus != nil {
+		// Already marked — reset retry count for FAILED instances
+		if resetErr := s.store.ServiceTypeInstance().ResetRetryCount(ctx, instanceID); resetErr != nil {
+			log.Error("Failed to reset retry count for instance", "instance_id", instanceID, "error", resetErr)
+		}
+	} else {
+		// Mark as pending deletion
+		if markErr := s.store.ServiceTypeInstance().MarkForDeletion(ctx, instanceID); markErr != nil {
+			return service.NewInternalError(fmt.Sprintf("failed to mark instance %s for deletion: %v", instanceID, markErr))
 		}
 	}
 
-	// Delete from database
-	err = s.store.ServiceTypeInstance().Delete(ctx, instanceID)
+	log.Info("Deferred deletion of instance from provider", "instance_id", instance.ID, "provider_name", instance.ProviderName)
+	return nil
+}
+
+// DeleteFromProvider deletes the instance from its service provider and, on
+// success, hard-deletes the database record.
+func (s *InstanceService) DeleteFromProvider(ctx context.Context, instance *model.ServiceTypeInstance) error {
+	log := logging.FromContext(ctx)
+	log.Debug("Deleting instance from provider", "instance_id", instance.ID, "provider_name", instance.ProviderName)
+
+	provider, err := s.store.Provider().GetByName(ctx, instance.ProviderName)
 	if err != nil {
-		log.Error("Failed to delete instance from store", "instance_id", instanceID, "error", err)
-		return service.NewInternalError(fmt.Sprintf("failed to delete database record for instance %s: %v", instanceID, err))
+		if errors.Is(err, store.ErrProviderNotFound) {
+			return fmt.Errorf("provider '%s' not found", instance.ProviderName)
+		}
+		return fmt.Errorf("failed to retrieve provider: %w", err)
+	}
+
+	if err = s.deleteInstanceWithProvider(ctx, provider.Endpoint, instance.ID); err != nil {
+		return err
 	}
 
 	log.Info("Instance deleted successfully",
-		"instance_id", instanceID,
+		"instance_id", instance.ID,
 		"provider_name", instance.ProviderName,
 	)
+
+	if err = s.store.ServiceTypeInstance().HardDelete(ctx, instance.ID); err != nil {
+		return fmt.Errorf("failed to delete database record for instance %s: %w", instance.ID, err)
+	}
+
+	log.Info("Deleted instance from DB record", "instance_id", instance.ID)
 	return nil
 }
 
