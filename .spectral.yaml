@@ -1,6 +1,12 @@
 extends:
   - https://raw.githubusercontent.com/aep-dev/aep-openapi-linter/main/spectral.yaml
 
+overrides:
+  - files: ["api/v1alpha1/resource_manager/openapi.yaml"]
+    rules:
+      # show_deleted is a valid AEP-164 soft-delete parameter on Get/List (https://aep.dev/164/)
+      aep-131-unknown-optional-params: off
+
 rules:
   x-aep-resource-no-boolean:
     description: x-aep-resource should be an object with full structure, not just true
