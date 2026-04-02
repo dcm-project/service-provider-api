@@ -1,8 +1,6 @@
 package provider
 
 import (
-	"time"
-
 	providerserver "github.com/dcm-project/service-provider-manager/internal/api/server/provider"
 	"github.com/dcm-project/service-provider-manager/internal/service"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
@@ -31,14 +29,11 @@ func ModelToProviderWithStatus(m *model.Provider, status providerserver.Provider
 
 // ProviderToModel converts an API request to a database model.
 func ProviderToModel(req *providerserver.Provider, id string) model.Provider {
-	now := time.Now()
 	return model.Provider{
 		ID:            id,
 		Name:          req.Name,
 		ServiceType:   req.ServiceType,
 		SchemaVersion: req.SchemaVersion,
 		Endpoint:      req.Endpoint,
-		CreateTime:    now,
-		UpdateTime:    now,
 	}
 }
