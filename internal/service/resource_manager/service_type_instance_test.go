@@ -6,12 +6,14 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"time"
 
 	"github.com/dcm-project/service-provider-manager/api/v1alpha1/resource_manager"
 	"github.com/dcm-project/service-provider-manager/internal/service"
 	rmsvc "github.com/dcm-project/service-provider-manager/internal/service/resource_manager"
 	"github.com/dcm-project/service-provider-manager/internal/store"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
+	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -68,7 +70,9 @@ var _ = Describe("InstanceService", func() {
 		Expect(db.Create(&provider).Error).NotTo(HaveOccurred())
 
 		dataStore = store.NewStore(db)
-		instanceService = rmsvc.NewInstanceService(dataStore)
+		instanceService = rmsvc.NewInstanceService(dataStore, resty.New().
+			SetTimeout(5*time.Second).
+			SetRetryCount(0))
 		ctx = context.Background()
 	})
 

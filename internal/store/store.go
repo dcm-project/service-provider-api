@@ -2,6 +2,7 @@
 package store
 
 import (
+	"github.com/cenkalti/backoff/v5"
 	providerstore "github.com/dcm-project/service-provider-manager/internal/store/provider"
 	rmstore "github.com/dcm-project/service-provider-manager/internal/store/resource_manager"
 	"gorm.io/gorm"
@@ -19,11 +20,36 @@ type DataStore struct {
 	instance rmstore.ServiceTypeInstance
 }
 
-func NewStore(db *gorm.DB) Store {
+type storeConfig struct {
+	instanceRetry []backoff.RetryOption
+}
+
+// StoreOption configures NewStore.
+type StoreOption func(*storeConfig)
+
+// WithServiceTypeInstanceRetry sets backoff for service type instance Create/HardDelete.
+func WithServiceTypeInstanceRetry(opts ...backoff.RetryOption) StoreOption {
+	return func(c *storeConfig) {
+		c.instanceRetry = append([]backoff.RetryOption(nil), opts...)
+	}
+}
+
+// NewStore constructs the data store. Optional StoreOptions are for tests (e.g. fast DB retry).
+func NewStore(db *gorm.DB, opts ...StoreOption) Store {
+	cfg := &storeConfig{}
+	for _, o := range opts {
+		o(cfg)
+	}
+	var instance rmstore.ServiceTypeInstance
+	if len(cfg.instanceRetry) > 0 {
+		instance = rmstore.NewServiceTypeInstance(db, cfg.instanceRetry...)
+	} else {
+		instance = rmstore.NewServiceTypeInstance(db)
+	}
 	return &DataStore{
 		db:       db,
 		provider: providerstore.NewProvider(db),
-		instance: rmstore.NewServiceTypeInstance(db),
+		instance: instance,
 	}
 }
 
