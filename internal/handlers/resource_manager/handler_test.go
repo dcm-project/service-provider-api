@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"time"
 
 	server "github.com/dcm-project/service-provider-manager/internal/api/server/resource_manager"
 	rmhandlers "github.com/dcm-project/service-provider-manager/internal/handlers/resource_manager"
 	rmsvc "github.com/dcm-project/service-provider-manager/internal/service/resource_manager"
 	"github.com/dcm-project/service-provider-manager/internal/store"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
+	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -58,7 +60,9 @@ var _ = Describe("Resource Manager Handler", func() {
 		Expect(db.Create(&provider).Error).NotTo(HaveOccurred())
 
 		dataStore := store.NewStore(db)
-		instanceService := rmsvc.NewInstanceService(dataStore)
+		instanceService := rmsvc.NewInstanceService(dataStore, resty.New().
+			SetTimeout(5*time.Second).
+			SetRetryCount(0))
 		handler = rmhandlers.NewHandler(instanceService)
 		ctx = context.Background()
 	})

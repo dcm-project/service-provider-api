@@ -23,16 +23,24 @@ type InstanceService struct {
 	httpClient *resty.Client
 }
 
-func NewInstanceService(store store.Store) *InstanceService {
-	client := resty.New().
+func defaultProviderHTTPClient() *resty.Client {
+	return resty.New().
 		SetTimeout(30 * time.Second).
 		SetRetryCount(3).
 		SetRetryWaitTime(2 * time.Second).
 		SetRetryMaxWaitTime(30 * time.Second)
+}
 
+// NewInstanceService constructs InstanceService. If httpClient is nil, production
+// defaults are used for outbound provider HTTP; tests may pass a non-nil client
+// (e.g. no retries, short timeout) to avoid slow failures.
+func NewInstanceService(store store.Store, httpClient *resty.Client) *InstanceService {
+	if httpClient == nil {
+		httpClient = defaultProviderHTTPClient()
+	}
 	return &InstanceService{
 		store:      store,
-		httpClient: client,
+		httpClient: httpClient,
 	}
 }
 

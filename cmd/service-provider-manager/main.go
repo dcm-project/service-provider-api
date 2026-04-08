@@ -61,7 +61,7 @@ func run() int {
 	providerHandler := providerhandler.NewHandler(providerService)
 
 	// Resource Manager API
-	instanceService := rmsvc.NewInstanceService(dataStore)
+	instanceService := rmsvc.NewInstanceService(dataStore, nil)
 	rmHandler := rmhandlers.NewHandler(instanceService)
 
 	// Initialize StatusConsumer
