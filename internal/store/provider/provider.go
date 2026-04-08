@@ -118,7 +118,12 @@ func (s *ProviderStore) Delete(ctx context.Context, id string) error {
 }
 
 func (s *ProviderStore) Update(ctx context.Context, provider model.Provider) (*model.Provider, error) {
-	result := s.db.WithContext(ctx).Model(&provider).Clauses(clause.Returning{}).Updates(&provider)
+	// Select explicit columns so nullable JSON and *string fields can be cleared (not skipped as zero).
+	result := s.db.WithContext(ctx).Model(&provider).Clauses(clause.Returning{}).
+		Select(
+			"Name", "ServiceType", "SchemaVersion", "Endpoint",
+			"DisplayName", "OperationsJSON", "MetadataJSON", "UpdateTime",
+		).Updates(&provider)
 	if result.Error != nil {
 		return nil, result.Error
 	}

@@ -88,6 +88,85 @@ var _ = Describe("ProviderService", func() {
 			Expect(resp2.Endpoint).To(Equal("https://updated.example.com"))
 		})
 
+		It("persists display_name on create and get", func() {
+			dn := "Human-readable name"
+			req := newProvider("persist-display-name")
+			req.DisplayName = &dn
+
+			resp, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.DisplayName).NotTo(BeNil())
+			Expect(*resp.DisplayName).To(Equal(dn))
+
+			got, err := providerService.GetProvider(ctx, *resp.Id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.DisplayName).NotTo(BeNil())
+			Expect(*got.DisplayName).To(Equal(dn))
+		})
+
+		It("persists operations on create and get", func() {
+			ops := []string{"CREATE", "DELETE", "READ"}
+			req := newProvider("persist-operations")
+			req.Operations = &ops
+
+			resp, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Operations).NotTo(BeNil())
+			Expect(*resp.Operations).To(Equal(ops))
+
+			got, err := providerService.GetProvider(ctx, *resp.Id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Operations).NotTo(BeNil())
+			Expect(*got.Operations).To(Equal(ops))
+		})
+
+		It("persists metadata on create and get", func() {
+			region := "us-east-1"
+			req := newProvider("persist-metadata")
+			req.Metadata = &providerserver.ProviderMetadata{RegionCode: &region}
+
+			resp, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Metadata).NotTo(BeNil())
+			Expect(resp.Metadata.RegionCode).NotTo(BeNil())
+			Expect(*resp.Metadata.RegionCode).To(Equal(region))
+
+			got, err := providerService.GetProvider(ctx, *resp.Id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Metadata).NotTo(BeNil())
+			Expect(*got.Metadata.RegionCode).To(Equal(region))
+		})
+
+		It("updates metadata on re-register", func() {
+			req := newProvider("meta-re-register")
+			req.Metadata = &providerserver.ProviderMetadata{}
+			req.Metadata.Set("supportedPlatforms", "baremetal")
+
+			resp1, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			Expect(err).NotTo(HaveOccurred())
+			val, ok := resp1.Metadata.Get("supportedPlatforms")
+			Expect(ok).To(BeTrue())
+			Expect(val).To(Equal("baremetal"))
+
+			req2 := newProvider("meta-re-register")
+			req2.Id = resp1.Id
+			req2.Metadata = &providerserver.ProviderMetadata{}
+			req2.Metadata.Set("supportedPlatforms", "kubevirt")
+
+			resp2, err := providerService.RegisterOrUpdateProvider(ctx, req2, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*resp2.Status).To(Equal(providerserver.Updated))
+			val2, ok := resp2.Metadata.Get("supportedPlatforms")
+			Expect(ok).To(BeTrue())
+			Expect(val2).To(Equal("kubevirt"))
+
+			got, err := providerService.GetProvider(ctx, *resp1.Id)
+			Expect(err).NotTo(HaveOccurred())
+			val3, ok := got.Metadata.Get("supportedPlatforms")
+			Expect(ok).To(BeTrue())
+			Expect(val3).To(Equal("kubevirt"))
+		})
+
 		It("returns conflict when name exists with different ID", func() {
 			req := newProvider("conflict-name")
 			_, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
