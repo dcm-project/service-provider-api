@@ -5,6 +5,7 @@ import (
 
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
 	rmstore "github.com/dcm-project/service-provider-manager/internal/store/resource_manager"
+	"github.com/dcm-project/service-provider-manager/internal/testutil"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,7 +47,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(db.AutoMigrate(&model.ServiceTypeInstance{})).To(Succeed())
 
-		s = rmstore.NewServiceTypeInstance(db)
+		s = rmstore.NewServiceTypeInstance(db, testutil.FastServiceTypeInstanceRetry()...)
 		ctx = context.Background()
 	})
 

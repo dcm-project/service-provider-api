@@ -45,13 +45,23 @@ type ServiceTypeInstance interface { //nolint:interfacebloat
 }
 
 type ServiceTypeInstanceStore struct {
-	db *gorm.DB
+	db        *gorm.DB
+	retryOpts []backoff.RetryOption
 }
 
 var _ ServiceTypeInstance = (*ServiceTypeInstanceStore)(nil)
 
-func NewServiceTypeInstance(db *gorm.DB) ServiceTypeInstance {
-	return &ServiceTypeInstanceStore{db: db}
+// NewServiceTypeInstance constructs the store. If no retry options are passed,
+// production backoff is used for Create and HardDelete. Tests may pass custom
+// options (e.g. sub-second intervals) to avoid slow retry exhaustion.
+func NewServiceTypeInstance(db *gorm.DB, retryOpts ...backoff.RetryOption) ServiceTypeInstance {
+	var opts []backoff.RetryOption
+	if len(retryOpts) == 0 {
+		opts = getRetryOptions()
+	} else {
+		opts = append([]backoff.RetryOption(nil), retryOpts...)
+	}
+	return &ServiceTypeInstanceStore{db: db, retryOpts: opts}
 }
 
 func (s *ServiceTypeInstanceStore) List(ctx context.Context, opts *ServiceTypeInstanceListOptions) (*ServiceTypeInstanceListResult, error) {
@@ -120,7 +130,7 @@ func (s *ServiceTypeInstanceStore) Create(ctx context.Context, instance model.Se
 		return &instance, nil
 	}
 
-	return backoff.Retry(ctx, operation, getRetryOptions()...)
+	return backoff.Retry(ctx, operation, s.retryOpts...)
 }
 
 func (s *ServiceTypeInstanceStore) Get(ctx context.Context, id string, showDeleted bool) (*model.ServiceTypeInstance, error) {
@@ -247,7 +257,7 @@ func (s *ServiceTypeInstanceStore) HardDelete(ctx context.Context, id string) er
 		return nil, nil
 	}
 
-	_, err := backoff.Retry(ctx, operation, getRetryOptions()...)
+	_, err := backoff.Retry(ctx, operation, s.retryOpts...)
 	return err
 }
 
