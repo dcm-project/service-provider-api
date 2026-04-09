@@ -351,7 +351,7 @@ var _ = Describe("Service Instance API", func() {
 			Expect(*getResp.JSON200.DeletionStatus).To(Equal(resource_manager.PENDING))
 		})
 
-		It("hard-deletes on deferred delete when SP succeeds", func() {
+		It("marks instance PENDING on deferred delete even when SP is available", func() {
 			createInstance()
 
 			deferred := true
@@ -362,13 +362,14 @@ var _ = Describe("Service Instance API", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNoContent))
 
-			// Instance should be fully removed, not even visible with show_deleted
+			// Instance should be marked PENDING, not hard-deleted
 			showDeleted := true
 			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, instID, &resource_manager.GetInstanceParams{
 				ShowDeleted: &showDeleted,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(getResp.StatusCode()).To(Equal(http.StatusNotFound))
+			Expect(getResp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(string(*getResp.JSON200.DeletionStatus)).To(Equal("PENDING"))
 		})
 
 		It("excludes soft-deleted instances from default LIST", func() {
