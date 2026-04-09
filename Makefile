@@ -1,6 +1,9 @@
 .PHONY: build run clean fmt vet test test-e2e e2e-up e2e-down test-e2e-full test-coverage tidy generate-types generate-spec generate-server generate-client generate-api check-aep check-generate-api
 
 BINARY_NAME := service-provider-manager
+COMPOSE ?= $(shell command -v podman-compose >/dev/null 2>&1 && echo podman-compose || \
+	(command -v docker-compose >/dev/null 2>&1 && echo docker-compose || \
+	(echo "docker compose")))
 
 build:
 	go build -o bin/$(BINARY_NAME) ./cmd/$(BINARY_NAME)
@@ -29,7 +32,7 @@ test-e2e:
 	go run github.com/onsi/ginkgo/v2/ginkgo -r -v --tags=e2e ./test/e2e/...
 
 e2e-up:
-	podman-compose -f test/e2e/compose.yaml up -d --build
+	$(COMPOSE) -f test/e2e/compose.yaml up -d --build
 	@echo "Waiting for services to be healthy..."
 	@until curl -sf http://localhost:9090/__admin/health > /dev/null 2>&1; do sleep 1; done
 	@echo "WireMock ready."
@@ -37,7 +40,7 @@ e2e-up:
 	@echo "Services ready."
 
 e2e-down:
-	podman-compose -f test/e2e/compose.yaml down -v
+	$(COMPOSE) -f test/e2e/compose.yaml down -v
 
 test-e2e-full:
 	$(MAKE) e2e-up
