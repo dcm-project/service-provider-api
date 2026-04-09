@@ -506,19 +506,17 @@ var _ = Describe("InstanceService", func() {
 			Expect(svcErr.Code).To(Equal(service.ErrCodeProviderError))
 		})
 
-		It("defers deletion when provider is missing and deferred is true", func() {
+		It("defers deletion without contacting provider", func() {
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "test-provider",
 				Spec:         map[string]interface{}{"cpu": 2},
 			}
 			created, _ := instanceService.CreateInstance(ctx, req, nil)
 
-			// Delete the provider from the database
-			Expect(db.Delete(&model.Provider{}, "name = ?", "test-provider").Error).NotTo(HaveOccurred())
-
-			// Deferred delete should succeed
+			// Deferred delete should succeed without calling the provider
 			err := instanceService.DeleteInstance(ctx, *created.Id, true)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteRequested).To(BeFalse())
 
 			// Instance should be marked for deletion, not visible in default list
 			result, err := instanceService.ListInstances(ctx, nil, false, nil, nil)
@@ -532,46 +530,26 @@ var _ = Describe("InstanceService", func() {
 			Expect(string(*(*result.Instances)[0].DeletionStatus)).To(Equal("PENDING"))
 		})
 
-		It("defers deletion when provider returns error and deferred is true", func() {
-			// Create a provider that returns errors on delete
-			mockProviderError := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method == http.MethodDelete {
-					w.WriteHeader(http.StatusInternalServerError)
-					return
-				}
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusOK)
-				_ = json.NewEncoder(w).Encode(map[string]string{
-					"id":     uuid.New().String(),
-					"status": "PROVISIONING",
-				})
-			}))
-			defer mockProviderError.Close()
-
-			errorProvider := model.Provider{
-				ID:           uuid.New().String(),
-				Name:         "error-provider",
-				ServiceType:  "vm",
-				Endpoint:     mockProviderError.URL,
-				HealthStatus: model.HealthStatusReady,
-			}
-			Expect(db.Create(&errorProvider).Error).NotTo(HaveOccurred())
-
+		It("defers deletion without contacting provider even when provider is missing", func() {
 			req := &resource_manager.ServiceTypeInstance{
-				ProviderName: "error-provider",
+				ProviderName: "test-provider",
 				Spec:         map[string]interface{}{"cpu": 2},
 			}
-			created, err := instanceService.CreateInstance(ctx, req, nil)
-			Expect(err).NotTo(HaveOccurred())
+			created, _ := instanceService.CreateInstance(ctx, req, nil)
 
-			// Deferred delete should succeed despite provider error
-			err = instanceService.DeleteInstance(ctx, *created.Id, true)
+			// Delete the provider from the database
+			Expect(db.Delete(&model.Provider{}, "name = ?", "test-provider").Error).NotTo(HaveOccurred())
+
+			// Deferred delete should succeed without attempting provider call
+			err := instanceService.DeleteInstance(ctx, *created.Id, true)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteRequested).To(BeFalse())
 
 			// Verify marked as PENDING
 			result, err := instanceService.ListInstances(ctx, nil, true, nil, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*result.Instances).To(HaveLen(1))
+			Expect(string(*(*result.Instances)[0].DeletionStatus)).To(Equal("PENDING"))
 		})
 
 		It("resets retry count when deleting a FAILED instance with deferred=true", func() {
@@ -588,12 +566,10 @@ var _ = Describe("InstanceService", func() {
 				"retry_count":     10,
 			}).Error).NotTo(HaveOccurred())
 
-			// Delete the provider so SP deletion fails
-			Expect(db.Delete(&model.Provider{}, "name = ?", "test-provider").Error).NotTo(HaveOccurred())
-
-			// Deferred delete should succeed and reset retry count
+			// Deferred delete should succeed and reset retry count without contacting provider
 			err := instanceService.DeleteInstance(ctx, *created.Id, true)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteRequested).To(BeFalse())
 
 			// Verify retry count was reset and status is PENDING
 			var instance model.ServiceTypeInstance
