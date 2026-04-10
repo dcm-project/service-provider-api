@@ -170,8 +170,8 @@ func (s *InstanceService) ListInstances(ctx context.Context, providerName *strin
 	return apiResult, nil
 }
 
-// DeleteInstance removes an instance by ID. When deferred is true, deletion
-// failures are recorded in a cleanup queue and the method returns success.
+// DeleteInstance removes an instance by ID. When deferred is true, the instance
+// is marked for background cleanup without contacting the provider.
 func (s *InstanceService) DeleteInstance(ctx context.Context, instanceID string, deferred bool) error {
 	log := logging.FromContext(ctx)
 	log.Debug("Deleting instance", "instance_id", instanceID, "deferred", deferred)
@@ -186,7 +186,25 @@ func (s *InstanceService) DeleteInstance(ctx context.Context, instanceID string,
 		return service.NewInternalError(fmt.Sprintf("failed to retrieve instance: %v", err))
 	}
 
-	// Attempt SP deletion and DB hard-delete
+	// Deferred mode: skip provider call, just enqueue for background cleanup
+	if deferred {
+		if instance.DeletionStatus != nil {
+			// Already marked — reset retry count so scheduler picks it up again
+			if resetErr := s.store.ServiceTypeInstance().ResetRetryCount(ctx, instanceID); resetErr != nil {
+				log.Error("Failed to reset retry count for instance", "instance_id", instanceID, "error", resetErr)
+			}
+		} else {
+			// Mark as pending deletion
+			if markErr := s.store.ServiceTypeInstance().MarkForDeletion(ctx, instanceID); markErr != nil {
+				return service.NewInternalError(fmt.Sprintf("failed to mark instance %s for deletion: %v", instanceID, markErr))
+			}
+		}
+
+		log.Info("Scheduled deferred deletion of instance from provider", "instance_id", instance.ID, "provider_name", instance.ProviderName)
+		return nil
+	}
+
+	// Non-deferred: attempt SP deletion and DB hard-delete
 	deleteErr := s.DeleteFromProvider(ctx, instance)
 	if deleteErr == nil {
 		return nil
@@ -199,32 +217,13 @@ func (s *InstanceService) DeleteInstance(ctx context.Context, instanceID string,
 		"error", deleteErr,
 	)
 
-	// SP deletion failed
-	if !deferred {
-		// For already-pending/failed instances, reset retry count so scheduler picks it up again
-		if instance.DeletionStatus != nil {
-			if resetErr := s.store.ServiceTypeInstance().ResetRetryCount(ctx, instanceID); resetErr != nil {
-				log.Error("Failed to reset retry count for instance", "instance_id", instanceID, "error", resetErr)
-			}
-		}
-		return service.NewProviderError(fmt.Sprintf("failed to delete instance (%s): %v", instanceID, deleteErr))
-	}
-
-	// Deferred mode: mark for deletion (or reset retry count if already pending/failed)
+	// For already-pending/failed instances, reset retry count so scheduler picks it up again
 	if instance.DeletionStatus != nil {
-		// Already marked — reset retry count for FAILED instances
 		if resetErr := s.store.ServiceTypeInstance().ResetRetryCount(ctx, instanceID); resetErr != nil {
 			log.Error("Failed to reset retry count for instance", "instance_id", instanceID, "error", resetErr)
 		}
-	} else {
-		// Mark as pending deletion
-		if markErr := s.store.ServiceTypeInstance().MarkForDeletion(ctx, instanceID); markErr != nil {
-			return service.NewInternalError(fmt.Sprintf("failed to mark instance %s for deletion: %v", instanceID, markErr))
-		}
 	}
-
-	log.Info("Deferred deletion of instance from provider", "instance_id", instance.ID, "provider_name", instance.ProviderName)
-	return nil
+	return service.NewProviderError(fmt.Sprintf("failed to delete instance (%s): %v", instanceID, deleteErr))
 }
 
 // DeleteFromProvider deletes the instance from its service provider and, on
