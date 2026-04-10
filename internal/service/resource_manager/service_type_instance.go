@@ -200,7 +200,7 @@ func (s *InstanceService) DeleteInstance(ctx context.Context, instanceID string,
 			}
 		}
 
-		log.Info("Deferred deletion of instance from provider", "instance_id", instance.ID, "provider_name", instance.ProviderName)
+		log.Info("Scheduled deferred deletion of instance from provider", "instance_id", instance.ID, "provider_name", instance.ProviderName)
 		return nil
 	}
 
