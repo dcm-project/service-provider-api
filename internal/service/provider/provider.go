@@ -145,10 +145,7 @@ func (s *ProviderService) resolveProviderID(ctx context.Context, requestedID *st
 func (s *ProviderService) updateExistingProvider(ctx context.Context, existing *model.Provider, req *providerserver.Provider) (*model.Provider, error) {
 	log := logging.FromContext(ctx)
 
-	existing.Name = req.Name
-	existing.ServiceType = req.ServiceType
-	existing.SchemaVersion = req.SchemaVersion
-	existing.Endpoint = req.Endpoint
+	applyProviderRequestToModel(existing, req)
 	existing.UpdateTime = time.Now()
 
 	updated, err := s.store.Provider().Update(ctx, *existing)

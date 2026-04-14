@@ -21,13 +21,16 @@ func (h HealthStatus) StringPtr() *string {
 }
 
 type Provider struct {
-	ID            string    `gorm:"primaryKey;type:varchar(63)"`
-	Name          string    `gorm:"uniqueIndex;not null"`
-	ServiceType   string    `gorm:"column:service_type;not null"`
-	SchemaVersion string    `gorm:"column:schema_version;not null"`
-	Endpoint      string    `gorm:"column:endpoint;not null"`
-	CreateTime    time.Time `gorm:"column:create_time;autoCreateTime"`
-	UpdateTime    time.Time `gorm:"column:update_time;autoUpdateTime"`
+	ID            string                 `gorm:"primaryKey;type:varchar(63)"`
+	Name          string                 `gorm:"uniqueIndex;not null"`
+	ServiceType   string                 `gorm:"column:service_type;not null"`
+	SchemaVersion string                 `gorm:"column:schema_version;not null"`
+	Endpoint      string                 `gorm:"column:endpoint;not null"`
+	DisplayName   *string                `gorm:"column:display_name"`
+	Operations    []string               `gorm:"column:operations;serializer:json"`
+	Metadata      map[string]interface{} `gorm:"column:metadata;serializer:json"`
+	CreateTime    time.Time              `gorm:"column:create_time;autoCreateTime"`
+	UpdateTime    time.Time              `gorm:"column:update_time;autoUpdateTime"`
 
 	// Health check fields
 	HealthStatus        HealthStatus `gorm:"column:health_status;default:ready"`
