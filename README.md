@@ -67,6 +67,12 @@ Environment variables:
 | `DB_USER` | *(none)* | Database user (required for pgsql) |
 | `DB_PASS` | *(none)* | Database password (required for pgsql) |
 
+### Releasing
+
+Images are pushed to `quay.io/dcm-project/service-provider-manager`.
+See [Releasing](https://github.com/dcm-project/shared-workflows#release-flow)
+in shared-workflows for the full release process, tag behavior, and version conventions.
+
 ## License
 
 Apache 2.0 - see [LICENSE](LICENSE)
