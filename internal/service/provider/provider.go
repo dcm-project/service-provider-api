@@ -59,7 +59,7 @@ func (s *ProviderService) RegisterOrUpdateProvider(ctx context.Context, req *pro
 		if err != nil {
 			return nil, err
 		}
-		return ModelToProviderWithStatus(updated, providerserver.Updated), nil
+		return ModelToProvider(updated), nil
 	}
 
 	providerID, err := s.resolveProviderID(ctx, requestedID)
@@ -75,7 +75,7 @@ func (s *ProviderService) RegisterOrUpdateProvider(ctx context.Context, req *pro
 	}
 
 	log.Info("Provider created", "provider_id", created.ID, "name", created.Name)
-	return ModelToProviderWithStatus(created, providerserver.Registered), nil
+	return ModelToProvider(created), nil
 }
 
 // parseProviderID extracts the provider ID from request body or query parameter.

@@ -122,7 +122,7 @@ func (s *ProviderStore) Update(ctx context.Context, provider model.Provider) (*m
 	result := s.db.WithContext(ctx).Model(&provider).Clauses(clause.Returning{}).
 		Select(
 			"Name", "ServiceType", "SchemaVersion", "Endpoint",
-			"DisplayName", "Operations", "Metadata", "UpdateTime",
+			"DisplayName", "Operations", "Metadata", "Status", "UpdateTime",
 		).Updates(&provider)
 	if result.Error != nil {
 		return nil, result.Error

@@ -210,6 +210,17 @@ var _ = Describe("ProviderService", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(provider.Name).To(Equal("get-test"))
+			Expect(provider.Status).NotTo(BeNil())
+			Expect(*provider.Status).To(Equal(providerserver.Registered))
+
+			// Re-register to trigger update, then verify status via Get
+			req.Id = resp.Id
+			_, err = providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			provider, err = providerService.GetProvider(ctx, *resp.Id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*provider.Status).To(Equal(providerserver.Updated))
 		})
 
 		It("returns error for non-existent provider", func() {
@@ -224,15 +235,29 @@ var _ = Describe("ProviderService", func() {
 
 	Describe("ListProviders", func() {
 		It("returns all providers", func() {
-			_, err := providerService.RegisterOrUpdateProvider(ctx, newProvider("p1"), nil)
+			resp1, err := providerService.RegisterOrUpdateProvider(ctx, newProvider("p1"), nil)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = providerService.RegisterOrUpdateProvider(ctx, newProvider("p2"), nil)
+
+			// Re-register p2 so its status becomes "updated"
+			req2 := newProvider("p2")
+			resp2, err := providerService.RegisterOrUpdateProvider(ctx, req2, nil)
+			Expect(err).NotTo(HaveOccurred())
+			req2.Id = resp2.Id
+			_, err = providerService.RegisterOrUpdateProvider(ctx, req2, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			result, err := providerService.ListProviders(ctx, "", 0, "")
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Providers).To(HaveLen(2))
+
+			statusByID := map[string]providerserver.ProviderStatus{}
+			for _, p := range result.Providers {
+				Expect(p.Status).NotTo(BeNil())
+				statusByID[*p.Id] = *p.Status
+			}
+			Expect(statusByID[*resp1.Id]).To(Equal(providerserver.Registered))
+			Expect(statusByID[*resp2.Id]).To(Equal(providerserver.Updated))
 		})
 
 		It("filters by service type", func() {
@@ -329,6 +354,8 @@ var _ = Describe("ProviderService", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(updated.Endpoint).To(Equal("https://updated.example.com"))
+			Expect(updated.Status).NotTo(BeNil())
+			Expect(*updated.Status).To(Equal(providerserver.Updated))
 		})
 
 		It("returns conflict when renaming to existing name", func() {

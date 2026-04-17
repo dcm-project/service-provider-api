@@ -29,6 +29,7 @@ type Provider struct {
 	DisplayName   *string                `gorm:"column:display_name"`
 	Operations    []string               `gorm:"column:operations;serializer:json"`
 	Metadata      map[string]interface{} `gorm:"column:metadata;serializer:json"`
+	Status        string                 `gorm:"column:status;not null;default:registered"`
 	CreateTime    time.Time              `gorm:"column:create_time;autoCreateTime"`
 	UpdateTime    time.Time              `gorm:"column:update_time;autoUpdateTime"`
 

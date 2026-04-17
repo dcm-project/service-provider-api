@@ -139,7 +139,7 @@ var _ = Describe("Handler", func() {
 			Expect(*jsonResp.Providers).To(BeEmpty())
 		})
 
-		It("returns providers", func() {
+		It("returns providers with status", func() {
 			// Create providers first
 			for _, name := range []string{"provider-1", "provider-2"} {
 				createReq := providerserver.CreateProviderRequestObject{
@@ -160,11 +160,15 @@ var _ = Describe("Handler", func() {
 			jsonResp, ok := resp.(providerserver.ListProviders200JSONResponse)
 			Expect(ok).To(BeTrue())
 			Expect(*jsonResp.Providers).To(HaveLen(2))
+			for _, p := range *jsonResp.Providers {
+				Expect(p.Status).NotTo(BeNil())
+				Expect(*p.Status).To(Equal(providerserver.Registered))
+			}
 		})
 	})
 
 	Describe("GetProvider", func() {
-		It("returns provider", func() {
+		It("returns provider with status", func() {
 			// Create a provider first
 			createReq := providerserver.CreateProviderRequestObject{
 				Body: &providerserver.Provider{
@@ -187,6 +191,8 @@ var _ = Describe("Handler", func() {
 			jsonResp, ok := resp.(providerserver.GetProvider200JSONResponse)
 			Expect(ok).To(BeTrue())
 			Expect(jsonResp.Name).To(Equal("get-me"))
+			Expect(jsonResp.Status).NotTo(BeNil())
+			Expect(*jsonResp.Status).To(Equal(providerserver.Registered))
 		})
 
 		It("returns 404 for non-existent provider", func() {
@@ -203,7 +209,7 @@ var _ = Describe("Handler", func() {
 	})
 
 	Describe("ApplyProvider", func() {
-		It("updates existing provider", func() {
+		It("updates existing provider with status updated", func() {
 			// Create a provider first
 			createReq := providerserver.CreateProviderRequestObject{
 				Body: &providerserver.Provider{
@@ -234,6 +240,8 @@ var _ = Describe("Handler", func() {
 			jsonResp, ok := resp.(providerserver.ApplyProvider200JSONResponse)
 			Expect(ok).To(BeTrue())
 			Expect(jsonResp.Endpoint).To(Equal("https://updated.example.com"))
+			Expect(jsonResp.Status).NotTo(BeNil())
+			Expect(*jsonResp.Status).To(Equal(providerserver.Updated))
 		})
 
 		It("returns 404 for non-existent provider", func() {

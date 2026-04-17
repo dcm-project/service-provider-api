@@ -10,6 +10,7 @@ import (
 
 // ModelToProvider converts a database model to an API response type.
 func ModelToProvider(m *model.Provider) *providerserver.Provider {
+	status := providerserver.ProviderStatus(m.Status)
 	p := &providerserver.Provider{
 		Id:            &m.ID,
 		Name:          m.Name,
@@ -17,6 +18,7 @@ func ModelToProvider(m *model.Provider) *providerserver.Provider {
 		SchemaVersion: m.SchemaVersion,
 		Endpoint:      m.Endpoint,
 		DisplayName:   m.DisplayName,
+		Status:        &status,
 		HealthStatus:  m.HealthStatus.StringPtr(),
 		CreateTime:    service.PtrTime(m.CreateTime),
 		UpdateTime:    service.PtrTime(m.UpdateTime),
@@ -39,13 +41,6 @@ func ModelToProvider(m *model.Provider) *providerserver.Provider {
 	return p
 }
 
-// ModelToProviderWithStatus converts a database model to an API response with status.
-func ModelToProviderWithStatus(m *model.Provider, status providerserver.ProviderStatus) *providerserver.Provider {
-	p := ModelToProvider(m)
-	p.Status = &status
-	return p
-}
-
 // ProviderToModel converts an API request to a database model.
 func ProviderToModel(req *providerserver.Provider, id string) model.Provider {
 	m := model.Provider{
@@ -55,6 +50,7 @@ func ProviderToModel(req *providerserver.Provider, id string) model.Provider {
 		SchemaVersion: req.SchemaVersion,
 		Endpoint:      req.Endpoint,
 		DisplayName:   req.DisplayName,
+		Status:        string(providerserver.Registered),
 	}
 	if req.Metadata != nil {
 		if metaMap, err := providerMetadataToMap(req.Metadata); err == nil {
@@ -73,6 +69,7 @@ func applyProviderRequestToModel(dest *model.Provider, req *providerserver.Provi
 	dest.SchemaVersion = req.SchemaVersion
 	dest.Endpoint = req.Endpoint
 	dest.DisplayName = req.DisplayName
+	dest.Status = string(providerserver.Updated)
 	dest.Metadata = nil
 	if req.Metadata != nil {
 		if metaMap, err := providerMetadataToMap(req.Metadata); err == nil {
