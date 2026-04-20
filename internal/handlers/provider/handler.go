@@ -75,7 +75,7 @@ func (h *Handler) CreateProvider(ctx context.Context, request providerserver.Cre
 		"name", request.Body.Name,
 	)
 
-	response, err := h.providerService.RegisterOrUpdateProvider(ctx, request.Body, request.Params.Id)
+	response, updated, err := h.providerService.RegisterOrUpdateProvider(ctx, request.Body, request.Params.Id)
 	if err != nil {
 		logServiceError(ctx, "CreateProvider failed", err)
 		if svcErr, ok := err.(*service.ServiceError); ok {
@@ -89,7 +89,7 @@ func (h *Handler) CreateProvider(ctx context.Context, request providerserver.Cre
 		return providerserver.CreateProvider400ApplicationProblemPlusJSONResponse(newError("create-error", "Failed to create provider", err.Error(), 400)), nil
 	}
 
-	if response.Status != nil && *response.Status == providerserver.Updated {
+	if updated {
 		log.Info("Provider updated", "provider_id", *response.Id)
 		return providerserver.CreateProvider200JSONResponse(*response), nil
 	}

@@ -46,44 +46,39 @@ var _ = Describe("ProviderService", func() {
 		It("creates a new provider", func() {
 			req := newProvider("new-provider")
 
-			resp, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			resp, updated, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.Status).NotTo(BeNil())
-			Expect(*resp.Status).To(Equal(providerserver.Registered))
+			Expect(updated).To(BeFalse())
 			Expect(resp.Name).To(Equal("new-provider"))
 		})
 
 		It("updates existing provider with same name and ID", func() {
 			req := newProvider("update-test")
-			resp1, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			resp1, _, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Re-register with same ID
 			req.Id = resp1.Id
 			req.Endpoint = "https://updated.example.com"
-			var resp2 *providerserver.Provider
-			resp2, err = providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			_, updated, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp2.Status).NotTo(BeNil())
-			Expect(*resp2.Status).To(Equal(providerserver.Updated))
+			Expect(updated).To(BeTrue())
 		})
 
 		It("updates existing provider with same name and no ID (idempotent)", func() {
 			req := newProvider("idempotent-test")
-			resp1, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			resp1, _, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Re-register with same name but NO ID
 			req2 := newProvider("idempotent-test")
 			req2.Endpoint = "https://updated.example.com"
-			var resp2 *providerserver.Provider
-			resp2, err = providerService.RegisterOrUpdateProvider(ctx, req2, nil)
+			resp2, updated, err := providerService.RegisterOrUpdateProvider(ctx, req2, nil)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp2.Status).NotTo(BeNil())
-			Expect(*resp2.Status).To(Equal(providerserver.Updated))
+			Expect(updated).To(BeTrue())
 			Expect(*resp2.Id).To(Equal(*resp1.Id)) // Same ID returned
 			Expect(resp2.Endpoint).To(Equal("https://updated.example.com"))
 		})
@@ -93,7 +88,7 @@ var _ = Describe("ProviderService", func() {
 			req := newProvider("persist-display-name")
 			req.DisplayName = &dn
 
-			resp, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			resp, _, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.DisplayName).NotTo(BeNil())
 			Expect(*resp.DisplayName).To(Equal(dn))
@@ -109,7 +104,7 @@ var _ = Describe("ProviderService", func() {
 			req := newProvider("persist-operations")
 			req.Operations = &ops
 
-			resp, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			resp, _, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.Operations).NotTo(BeNil())
 			Expect(*resp.Operations).To(Equal(ops))
@@ -125,7 +120,7 @@ var _ = Describe("ProviderService", func() {
 			req := newProvider("persist-metadata")
 			req.Metadata = &providerserver.ProviderMetadata{RegionCode: &region}
 
-			resp, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			resp, _, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.Metadata).NotTo(BeNil())
 			Expect(resp.Metadata.RegionCode).NotTo(BeNil())
@@ -142,7 +137,7 @@ var _ = Describe("ProviderService", func() {
 			req.Metadata = &providerserver.ProviderMetadata{}
 			req.Metadata.Set("supportedPlatforms", "baremetal")
 
-			resp1, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			resp1, _, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 			Expect(err).NotTo(HaveOccurred())
 			val, ok := resp1.Metadata.Get("supportedPlatforms")
 			Expect(ok).To(BeTrue())
@@ -153,9 +148,9 @@ var _ = Describe("ProviderService", func() {
 			req2.Metadata = &providerserver.ProviderMetadata{}
 			req2.Metadata.Set("supportedPlatforms", "kubevirt")
 
-			resp2, err := providerService.RegisterOrUpdateProvider(ctx, req2, nil)
+			resp2, updated, err := providerService.RegisterOrUpdateProvider(ctx, req2, nil)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*resp2.Status).To(Equal(providerserver.Updated))
+			Expect(updated).To(BeTrue())
 			val2, ok := resp2.Metadata.Get("supportedPlatforms")
 			Expect(ok).To(BeTrue())
 			Expect(val2).To(Equal("kubevirt"))
@@ -169,13 +164,13 @@ var _ = Describe("ProviderService", func() {
 
 		It("returns conflict when name exists with different ID", func() {
 			req := newProvider("conflict-name")
-			_, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			_, _, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Try with different ID
 			newID := uuid.New().String()
 			req.Id = &newID
-			_, err = providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			_, _, err = providerService.RegisterOrUpdateProvider(ctx, req, nil)
 
 			Expect(err).To(HaveOccurred())
 			svcErr, ok := err.(*service.ServiceError)
@@ -185,13 +180,13 @@ var _ = Describe("ProviderService", func() {
 
 		It("returns conflict when providerID exists with different name", func() {
 			req := newProvider("first-name")
-			resp, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			resp, _, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Try with same ID but different name
 			req2 := newProvider("second-name")
 			req2.Id = resp.Id
-			_, err = providerService.RegisterOrUpdateProvider(ctx, req2, nil)
+			_, _, err = providerService.RegisterOrUpdateProvider(ctx, req2, nil)
 
 			Expect(err).To(HaveOccurred())
 			svcErr, ok := err.(*service.ServiceError)
@@ -203,7 +198,7 @@ var _ = Describe("ProviderService", func() {
 	Describe("GetProvider", func() {
 		It("returns the provider", func() {
 			req := newProvider("get-test")
-			resp, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			resp, _, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			provider, err := providerService.GetProvider(ctx, *resp.Id)
@@ -224,9 +219,9 @@ var _ = Describe("ProviderService", func() {
 
 	Describe("ListProviders", func() {
 		It("returns all providers", func() {
-			_, err := providerService.RegisterOrUpdateProvider(ctx, newProvider("p1"), nil)
+			_, _, err := providerService.RegisterOrUpdateProvider(ctx, newProvider("p1"), nil)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = providerService.RegisterOrUpdateProvider(ctx, newProvider("p2"), nil)
+			_, _, err = providerService.RegisterOrUpdateProvider(ctx, newProvider("p2"), nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			result, err := providerService.ListProviders(ctx, "", 0, "")
@@ -238,12 +233,12 @@ var _ = Describe("ProviderService", func() {
 		It("filters by service type", func() {
 			req1 := newProvider("vm-provider")
 			req1.ServiceType = "vm"
-			_, err := providerService.RegisterOrUpdateProvider(ctx, req1, nil)
+			_, _, err := providerService.RegisterOrUpdateProvider(ctx, req1, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			req2 := newProvider("container-provider")
 			req2.ServiceType = "container"
-			_, err = providerService.RegisterOrUpdateProvider(ctx, req2, nil)
+			_, _, err = providerService.RegisterOrUpdateProvider(ctx, req2, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			result, err := providerService.ListProviders(ctx, "vm", 0, "")
@@ -264,7 +259,7 @@ var _ = Describe("ProviderService", func() {
 		It("coerces page size to max", func() {
 			var err error
 			for i := 0; i < 5; i++ {
-				_, err = providerService.RegisterOrUpdateProvider(ctx, newProvider(fmt.Sprintf("coerce-p%d", i)), nil)
+				_, _, err = providerService.RegisterOrUpdateProvider(ctx, newProvider(fmt.Sprintf("coerce-p%d", i)), nil)
 				Expect(err).NotTo(HaveOccurred())
 			}
 
@@ -278,7 +273,7 @@ var _ = Describe("ProviderService", func() {
 		It("paginates through results", func() {
 			var err error
 			for i := 0; i < 5; i++ {
-				_, err = providerService.RegisterOrUpdateProvider(ctx, newProvider(fmt.Sprintf("paginate-p%d", i)), nil)
+				_, _, err = providerService.RegisterOrUpdateProvider(ctx, newProvider(fmt.Sprintf("paginate-p%d", i)), nil)
 				Expect(err).NotTo(HaveOccurred())
 			}
 
@@ -314,7 +309,7 @@ var _ = Describe("ProviderService", func() {
 	Describe("UpdateProvider", func() {
 		It("updates the provider", func() {
 			req := newProvider("update-provider")
-			resp, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			resp, _, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			update := &providerserver.Provider{
@@ -333,10 +328,10 @@ var _ = Describe("ProviderService", func() {
 
 		It("returns conflict when renaming to existing name", func() {
 			// Create two providers
-			_, err := providerService.RegisterOrUpdateProvider(ctx, newProvider("original-name"), nil)
+			_, _, err := providerService.RegisterOrUpdateProvider(ctx, newProvider("original-name"), nil)
 			Expect(err).NotTo(HaveOccurred())
 			var resp2 *providerserver.Provider
-			resp2, err = providerService.RegisterOrUpdateProvider(ctx, newProvider("to-rename"), nil)
+			resp2, _, err = providerService.RegisterOrUpdateProvider(ctx, newProvider("to-rename"), nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Try to rename second provider to first provider's name
@@ -375,7 +370,7 @@ var _ = Describe("ProviderService", func() {
 	Describe("DeleteProvider", func() {
 		It("deletes the provider", func() {
 			req := newProvider("to-delete")
-			resp, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			resp, _, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = providerService.DeleteProvider(ctx, *resp.Id)

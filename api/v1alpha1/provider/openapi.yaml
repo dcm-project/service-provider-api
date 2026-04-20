@@ -373,14 +373,6 @@ components:
           example: ["create", "delete", "update"]
         metadata:
           $ref: '#/components/schemas/ProviderMetadata'
-        status:
-          type: string
-          readOnly: true
-          description: Registration status
-          enum:
-            - registered
-            - updated
-          example: "registered"
         health_status:
           type: string
           description: Health status of the provider
