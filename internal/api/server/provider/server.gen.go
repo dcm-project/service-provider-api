@@ -16,24 +16,6 @@ import (
 	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
 )
 
-// Defines values for ProviderStatus.
-const (
-	Registered ProviderStatus = "registered"
-	Updated    ProviderStatus = "updated"
-)
-
-// Valid indicates whether the value is a known member of the ProviderStatus enum.
-func (e ProviderStatus) Valid() bool {
-	switch e {
-	case Registered:
-		return true
-	case Updated:
-		return true
-	default:
-		return false
-	}
-}
-
 // Error RFC 7807 compliant error response
 type Error struct {
 	// Detail Human-readable explanation specific to this occurrence
@@ -96,15 +78,9 @@ type Provider struct {
 	// ServiceType Type of service this provider offers
 	ServiceType string `json:"service_type"`
 
-	// Status Registration status
-	Status *ProviderStatus `json:"status,omitempty"`
-
 	// UpdateTime Timestamp when the provider was last updated
 	UpdateTime *time.Time `json:"update_time,omitempty"`
 }
-
-// ProviderStatus Registration status
-type ProviderStatus string
 
 // ProviderList Paginated list of providers
 type ProviderList struct {

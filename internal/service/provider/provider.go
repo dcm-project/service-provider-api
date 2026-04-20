@@ -40,9 +40,9 @@ func NewProviderService(store store.Store) *ProviderService {
 }
 
 // RegisterOrUpdateProvider implements idempotent provider registration per the DCM spec.
-// Returns status "registered" for new providers, "updated" for existing ones.
+// Returns the provider and a boolean indicating whether an existing provider was updated (true) or a new one was created (false).
 // Returns service.ErrCodeConflict if name exists with different ID or ID exists with different name.
-func (s *ProviderService) RegisterOrUpdateProvider(ctx context.Context, req *providerserver.Provider, queryID *string) (*providerserver.Provider, error) {
+func (s *ProviderService) RegisterOrUpdateProvider(ctx context.Context, req *providerserver.Provider, queryID *string) (*providerserver.Provider, bool, error) {
 	log := logging.FromContext(ctx)
 	log.Debug("RegisterOrUpdateProvider request received", "name", req.Name, "client_id", queryID)
 
@@ -50,32 +50,32 @@ func (s *ProviderService) RegisterOrUpdateProvider(ctx context.Context, req *pro
 
 	existing, err := s.findExistingByName(ctx, req.Name, requestedID)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	if existing != nil {
 		log.Debug("Existing provider found, updating", "provider_id", existing.ID, "name", req.Name)
 		updated, err := s.updateExistingProvider(ctx, existing, req)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		return ModelToProviderWithStatus(updated, providerserver.Updated), nil
+		return ModelToProvider(updated), true, nil
 	}
 
 	providerID, err := s.resolveProviderID(ctx, requestedID)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	providerModel := ProviderToModel(req, *providerID)
 	created, err := s.store.Provider().Create(ctx, providerModel)
 	if err != nil {
 		log.Error("Failed to create provider in store", "name", req.Name, "error", err)
-		return nil, err
+		return nil, false, err
 	}
 
 	log.Info("Provider created", "provider_id", created.ID, "name", created.Name)
-	return ModelToProviderWithStatus(created, providerserver.Registered), nil
+	return ModelToProvider(created), false, nil
 }
 
 // parseProviderID extracts the provider ID from request body or query parameter.

@@ -39,13 +39,6 @@ func ModelToProvider(m *model.Provider) *providerserver.Provider {
 	return p
 }
 
-// ModelToProviderWithStatus converts a database model to an API response with status.
-func ModelToProviderWithStatus(m *model.Provider, status providerserver.ProviderStatus) *providerserver.Provider {
-	p := ModelToProvider(m)
-	p.Status = &status
-	return p
-}
-
 // ProviderToModel converts an API request to a database model.
 func ProviderToModel(req *providerserver.Provider, id string) model.Provider {
 	m := model.Provider{

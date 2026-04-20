@@ -57,7 +57,6 @@ var _ = Describe("Provider API", func() {
 			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
 			Expect(createResp.JSON201).NotTo(BeNil())
 			Expect(createResp.JSON201.Id).NotTo(BeNil())
-			Expect(*createResp.JSON201.Status).To(Equal(providerapi.Registered))
 
 			providerID := *createResp.JSON201.Id
 
@@ -77,7 +76,6 @@ var _ = Describe("Provider API", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(reregResp.StatusCode()).To(Equal(http.StatusOK))
 			Expect(reregResp.JSON200).NotTo(BeNil())
-			Expect(*reregResp.JSON200.Status).To(Equal(providerapi.Updated))
 			Expect(*reregResp.JSON200.Id).To(Equal(providerID))
 
 			By("listing providers")
