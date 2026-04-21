@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"time"
 
 	providerapi "github.com/dcm-project/service-provider-manager/api/v1alpha1/provider"
 	"github.com/dcm-project/service-provider-manager/api/v1alpha1/resource_manager"
@@ -420,6 +421,71 @@ var _ = Describe("Service Instance API", func() {
 				ids[i] = *inst.Id
 			}
 			Expect(ids).To(ContainElement(instID))
+		})
+
+		It("transitions to PENDING_PROVIDER when provider goes down and back to PENDING on recovery", func() {
+			createInstance()
+			clearDeleteStubAndStubFailure()
+
+			// Deferred delete → PENDING
+			deferred := true
+			deleteResp, err := rmApiClient.DeleteInstanceWithResponse(ctx, instID, &resource_manager.DeleteInstanceParams{
+				Deferred: &deferred,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNoContent))
+
+			showDeleted := true
+			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, instID, &resource_manager.GetInstanceParams{
+				ShowDeleted: &showDeleted,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getResp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(*getResp.JSON200.DeletionStatus).To(Equal(resource_manager.PENDING))
+
+			// Remove health stub → provider becomes NotReady
+			resetHealthStubs()
+			waitForProviderNotReady(apiClient, ctx, providerID)
+
+			// Instance should transition to PENDING_PROVIDER
+			Eventually(func() resource_manager.ServiceTypeInstanceDeletionStatus {
+				resp, err := rmApiClient.GetInstanceWithResponse(ctx, instID, &resource_manager.GetInstanceParams{
+					ShowDeleted: &showDeleted,
+				})
+				if err != nil || resp.StatusCode() != http.StatusOK || resp.JSON200 == nil || resp.JSON200.DeletionStatus == nil {
+					return ""
+				}
+				return *resp.JSON200.DeletionStatus
+			}, 30*time.Second, 1*time.Second).Should(Equal(resource_manager.PENDINGPROVIDER))
+
+			// Restore health stub → provider recovers
+			stubProviderHealthEndpoint()
+			waitForProviderReady(apiClient, ctx, providerID)
+
+			// Instance should transition back to PENDING
+			Eventually(func() resource_manager.ServiceTypeInstanceDeletionStatus {
+				resp, err := rmApiClient.GetInstanceWithResponse(ctx, instID, &resource_manager.GetInstanceParams{
+					ShowDeleted: &showDeleted,
+				})
+				if err != nil || resp.StatusCode() != http.StatusOK || resp.JSON200 == nil || resp.JSON200.DeletionStatus == nil {
+					return ""
+				}
+				return *resp.JSON200.DeletionStatus
+			}, 30*time.Second, 1*time.Second).Should(Equal(resource_manager.PENDING))
+
+			// Clean up: restore delete stub and hard-delete
+			resetDeleteStubs()
+			stubProviderDeleteInstance()
+
+			deleteResp, err = rmApiClient.DeleteInstanceWithResponse(ctx, instID, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNoContent))
+
+			getResp, err = rmApiClient.GetInstanceWithResponse(ctx, instID, &resource_manager.GetInstanceParams{
+				ShowDeleted: &showDeleted,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getResp.StatusCode()).To(Equal(http.StatusNotFound))
 		})
 
 		It("can re-delete a soft-deleted instance when SP becomes available", func() {

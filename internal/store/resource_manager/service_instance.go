@@ -42,6 +42,9 @@ type ServiceTypeInstance interface { //nolint:interfacebloat
 	MarkDeletionFailed(ctx context.Context, id string) error
 	HardDelete(ctx context.Context, id string) error
 	ResetRetryCount(ctx context.Context, id string) error
+	MarkProviderDeletionsPendingProvider(ctx context.Context, providerName string) error
+	ReactivateProviderDeletions(ctx context.Context, providerName string) error
+	MarkPendingProviderIfNotReady(ctx context.Context, instanceID string) (bool, error)
 }
 
 type ServiceTypeInstanceStore struct {
@@ -178,8 +181,9 @@ func (s *ServiceTypeInstanceStore) ExistsByID(ctx context.Context, id string) (b
 }
 
 const (
-	DeletionStatusPending = "PENDING"
-	DeletionStatusFailed  = "FAILED"
+	DeletionStatusPending         = "PENDING"
+	DeletionStatusFailed          = "FAILED"
+	DeletionStatusPendingProvider = "PENDING_PROVIDER"
 )
 
 func (s *ServiceTypeInstanceStore) MarkForDeletion(ctx context.Context, id string) error {
@@ -277,6 +281,39 @@ func (s *ServiceTypeInstanceStore) ResetRetryCount(ctx context.Context, id strin
 		return ErrInstanceNotFound
 	}
 	return nil
+}
+
+func (s *ServiceTypeInstanceStore) MarkProviderDeletionsPendingProvider(ctx context.Context, providerName string) error {
+	return s.db.WithContext(ctx).
+		Model(&model.ServiceTypeInstance{}).
+		Where("provider_name = ? AND deletion_status IN ?", providerName, []string{DeletionStatusPending, DeletionStatusFailed}).
+		Update("deletion_status", DeletionStatusPendingProvider).
+		Error
+}
+
+func (s *ServiceTypeInstanceStore) ReactivateProviderDeletions(ctx context.Context, providerName string) error {
+	return s.db.WithContext(ctx).
+		Model(&model.ServiceTypeInstance{}).
+		Where("provider_name = ? AND deletion_status = ?", providerName, DeletionStatusPendingProvider).
+		Updates(map[string]any{
+			"deletion_status": DeletionStatusPending,
+			"retry_count":     0,
+		}).
+		Error
+}
+
+func (s *ServiceTypeInstanceStore) MarkPendingProviderIfNotReady(ctx context.Context, instanceID string) (bool, error) {
+	result := s.db.WithContext(ctx).
+		Model(&model.ServiceTypeInstance{}).
+		Where("id = ? AND provider_name IN (?)",
+			instanceID,
+			s.db.Model(&model.Provider{}).Select("name").Where("health_status = ?", model.HealthStatusNotReady),
+		).
+		Update("deletion_status", DeletionStatusPendingProvider)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
 }
 
 // getRetryOptions returns common retry configuration for database operations

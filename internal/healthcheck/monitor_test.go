@@ -10,6 +10,7 @@ import (
 	"github.com/dcm-project/service-provider-manager/internal/healthcheck"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
 	providerstore "github.com/dcm-project/service-provider-manager/internal/store/provider"
+	rmstore "github.com/dcm-project/service-provider-manager/internal/store/resource_manager"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -106,6 +107,60 @@ func (m *mockProviderStore) GetByName(_ context.Context, name string) (*model.Pr
 	return nil, nil
 }
 
+// mockInstanceStore implements rmstore.ServiceTypeInstance for testing
+type mockInstanceStore struct {
+	markProviderDeletionsCalls []string
+	reactivateProviderCalls    []string
+	markPendingProviderCalls   []string
+	markPendingProviderResult  bool
+	markPendingProviderErr     error
+}
+
+func (m *mockInstanceStore) MarkProviderDeletionsPendingProvider(_ context.Context, providerName string) error {
+	m.markProviderDeletionsCalls = append(m.markProviderDeletionsCalls, providerName)
+	return nil
+}
+
+func (m *mockInstanceStore) ReactivateProviderDeletions(_ context.Context, providerName string) error {
+	m.reactivateProviderCalls = append(m.reactivateProviderCalls, providerName)
+	return nil
+}
+
+func (m *mockInstanceStore) MarkPendingProviderIfNotReady(_ context.Context, instanceID string) (bool, error) {
+	m.markPendingProviderCalls = append(m.markPendingProviderCalls, instanceID)
+	return m.markPendingProviderResult, m.markPendingProviderErr
+}
+
+// Unused interface methods
+func (m *mockInstanceStore) List(_ context.Context, _ *rmstore.ServiceTypeInstanceListOptions) (*rmstore.ServiceTypeInstanceListResult, error) {
+	return nil, nil
+}
+
+func (m *mockInstanceStore) Create(_ context.Context, inst model.ServiceTypeInstance) (*model.ServiceTypeInstance, error) {
+	return &inst, nil
+}
+
+func (m *mockInstanceStore) Get(_ context.Context, _ string, _ bool) (*model.ServiceTypeInstance, error) {
+	return nil, nil
+}
+
+func (m *mockInstanceStore) ExistsByID(_ context.Context, _ string) (bool, error) { return false, nil }
+
+func (m *mockInstanceStore) UpdateStatus(_ context.Context, _ string, _ string, _ string) error {
+	return nil
+}
+
+func (m *mockInstanceStore) MarkForDeletion(_ context.Context, _ string) error { return nil }
+
+func (m *mockInstanceStore) ListPendingDeletions(_ context.Context) ([]model.ServiceTypeInstance, error) {
+	return nil, nil
+}
+
+func (m *mockInstanceStore) IncrementDeletionRetry(_ context.Context, _ string) error { return nil }
+func (m *mockInstanceStore) MarkDeletionFailed(_ context.Context, _ string) error     { return nil }
+func (m *mockInstanceStore) HardDelete(_ context.Context, _ string) error             { return nil }
+func (m *mockInstanceStore) ResetRetryCount(_ context.Context, _ string) error        { return nil }
+
 var _ = Describe("Monitor", func() {
 	var (
 		cfg     *config.HealthCheckConfig
@@ -122,7 +177,7 @@ var _ = Describe("Monitor", func() {
 		Context("for a Ready provider", func() {
 			It("schedules next check at the configured interval", func() {
 				mockStore := &mockProviderStore{}
-				monitor = healthcheck.NewMonitor(mockStore, cfg)
+				monitor = healthcheck.NewMonitor(mockStore, &mockInstanceStore{}, cfg)
 				now := time.Now()
 
 				nextCheck := monitor.CalculateNextCheckTime(now, model.HealthStatusReady, 0)
@@ -139,7 +194,7 @@ var _ = Describe("Monitor", func() {
 
 			BeforeEach(func() {
 				mockStore = &mockProviderStore{}
-				monitor = healthcheck.NewMonitor(mockStore, cfg)
+				monitor = healthcheck.NewMonitor(mockStore, &mockInstanceStore{}, cfg)
 				now = time.Now()
 			})
 
@@ -189,7 +244,7 @@ var _ = Describe("Monitor", func() {
 					},
 				}
 
-				monitor = healthcheck.NewMonitor(mockStore, cfg)
+				monitor = healthcheck.NewMonitor(mockStore, &mockInstanceStore{}, cfg)
 				monitor.CheckProviders(ctx)
 
 				Expect(mockStore.healthStatusUpdates).To(HaveLen(1))
@@ -219,7 +274,7 @@ var _ = Describe("Monitor", func() {
 					},
 				}
 
-				monitor = healthcheck.NewMonitor(mockStore, cfg)
+				monitor = healthcheck.NewMonitor(mockStore, &mockInstanceStore{}, cfg)
 				monitor.CheckProviders(ctx)
 
 				Expect(mockStore.healthStatusUpdates).To(HaveLen(1))
@@ -247,7 +302,7 @@ var _ = Describe("Monitor", func() {
 					},
 				}
 
-				monitor = healthcheck.NewMonitor(mockStore, cfg)
+				monitor = healthcheck.NewMonitor(mockStore, &mockInstanceStore{}, cfg)
 				monitor.CheckProviders(ctx)
 
 				Expect(mockStore.healthStatusUpdates).To(HaveLen(1))
@@ -277,13 +332,124 @@ var _ = Describe("Monitor", func() {
 					},
 				}
 
-				monitor = healthcheck.NewMonitor(mockStore, cfg)
+				monitor = healthcheck.NewMonitor(mockStore, &mockInstanceStore{}, cfg)
 				monitor.CheckProviders(ctx)
 
 				Expect(mockStore.healthStatusUpdates).To(HaveLen(1))
 				update := mockStore.healthStatusUpdates[0]
 				Expect(update.Status).To(Equal(model.HealthStatusReady))
 				Expect(update.ConsecutiveFailures).To(Equal(0))
+			})
+		})
+
+		Context("deletion status transitions on provider health change", func() {
+			It("calls MarkProviderDeletionsPendingProvider when provider transitions Ready -> NotReady", func() {
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(http.StatusInternalServerError)
+				}))
+				defer server.Close()
+
+				providerID := uuid.New().String()
+				mockStore := &mockProviderStore{
+					providers: model.ProviderList{
+						{
+							ID:                  providerID,
+							Name:                "unhealthy-provider",
+							Endpoint:            server.URL,
+							HealthStatus:        model.HealthStatusReady,
+							ConsecutiveFailures: 2, // This will be the 3rd failure -> NotReady
+						},
+					},
+				}
+
+				instStore := &mockInstanceStore{}
+				monitor = healthcheck.NewMonitor(mockStore, instStore, cfg)
+				monitor.CheckProviders(ctx)
+
+				Expect(instStore.markProviderDeletionsCalls).To(HaveLen(1))
+				Expect(instStore.markProviderDeletionsCalls[0]).To(Equal("unhealthy-provider"))
+				Expect(instStore.reactivateProviderCalls).To(BeEmpty())
+			})
+
+			It("calls ReactivateProviderDeletions when provider transitions NotReady -> Ready", func() {
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}))
+				defer server.Close()
+
+				providerID := uuid.New().String()
+				mockStore := &mockProviderStore{
+					providers: model.ProviderList{
+						{
+							ID:                  providerID,
+							Name:                "recovered-provider",
+							Endpoint:            server.URL,
+							HealthStatus:        model.HealthStatusNotReady,
+							ConsecutiveFailures: 5,
+						},
+					},
+				}
+
+				instStore := &mockInstanceStore{}
+				monitor = healthcheck.NewMonitor(mockStore, instStore, cfg)
+				monitor.CheckProviders(ctx)
+
+				Expect(instStore.reactivateProviderCalls).To(HaveLen(1))
+				Expect(instStore.reactivateProviderCalls[0]).To(Equal("recovered-provider"))
+				Expect(instStore.markProviderDeletionsCalls).To(BeEmpty())
+			})
+
+			It("does not call either method when provider stays Ready", func() {
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}))
+				defer server.Close()
+
+				providerID := uuid.New().String()
+				mockStore := &mockProviderStore{
+					providers: model.ProviderList{
+						{
+							ID:           providerID,
+							Name:         "stable-provider",
+							Endpoint:     server.URL,
+							HealthStatus: model.HealthStatusReady,
+						},
+					},
+				}
+
+				instStore := &mockInstanceStore{}
+				monitor = healthcheck.NewMonitor(mockStore, instStore, cfg)
+				monitor.CheckProviders(ctx)
+
+				Expect(instStore.markProviderDeletionsCalls).To(BeEmpty())
+				Expect(instStore.reactivateProviderCalls).To(BeEmpty())
+			})
+
+			It("does not call either method when provider stays NotReady", func() {
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(http.StatusInternalServerError)
+				}))
+				defer server.Close()
+
+				providerID := uuid.New().String()
+				mockStore := &mockProviderStore{
+					providers: model.ProviderList{
+						{
+							ID:                  providerID,
+							Name:                "still-down-provider",
+							Endpoint:            server.URL,
+							HealthStatus:        model.HealthStatusNotReady,
+							ConsecutiveFailures: 5,
+						},
+					},
+				}
+
+				instStore := &mockInstanceStore{}
+				monitor = healthcheck.NewMonitor(mockStore, instStore, cfg)
+				monitor.CheckProviders(ctx)
+
+				Expect(instStore.markProviderDeletionsCalls).To(BeEmpty())
+				Expect(instStore.reactivateProviderCalls).To(BeEmpty())
 			})
 		})
 	})

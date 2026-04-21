@@ -13,11 +13,13 @@ import (
 	"github.com/dcm-project/service-provider-manager/internal/config"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
 	providerstore "github.com/dcm-project/service-provider-manager/internal/store/provider"
+	rmstore "github.com/dcm-project/service-provider-manager/internal/store/resource_manager"
 )
 
 // Monitor performs periodic health checks on registered service providers
 type Monitor struct {
 	store                  providerstore.Provider
+	instanceStore          rmstore.ServiceTypeInstance
 	httpClient             *http.Client
 	interval               time.Duration
 	stopCh                 chan struct{}
@@ -28,9 +30,10 @@ type Monitor struct {
 }
 
 // NewMonitor creates a new health check monitor
-func NewMonitor(providerStore providerstore.Provider, config *config.HealthCheckConfig) *Monitor {
+func NewMonitor(providerStore providerstore.Provider, instanceStore rmstore.ServiceTypeInstance, config *config.HealthCheckConfig) *Monitor {
 	return &Monitor{
-		store: providerStore,
+		store:         providerStore,
+		instanceStore: instanceStore,
 		httpClient: &http.Client{
 			Timeout: config.Timeout,
 		},
@@ -121,6 +124,17 @@ func (m *Monitor) checkProvider(ctx context.Context, provider model.Provider) {
 			"old_status", provider.HealthStatus,
 			"new_status", newStatus,
 		)
+
+		switch newStatus {
+		case model.HealthStatusNotReady:
+			if err := m.instanceStore.MarkProviderDeletionsPendingProvider(ctx, provider.Name); err != nil {
+				slog.Error("Failed to park deletions for unhealthy provider", "provider", provider.Name, "error", err)
+			}
+		case model.HealthStatusReady:
+			if err := m.instanceStore.ReactivateProviderDeletions(ctx, provider.Name); err != nil {
+				slog.Error("Failed to reactivate deletions for recovered provider", "provider", provider.Name, "error", err)
+			}
+		}
 	}
 }
 
@@ -157,22 +171,13 @@ func (m *Monitor) CalculateNextCheckTime(now time.Time, status model.HealthStatu
 		return now.Add(m.interval)
 	}
 
-	exponent := consecutiveFailures - m.maxConsecutiveFailures
-	if exponent < 0 {
-		exponent = 0
-	}
+	exponent := max(consecutiveFailures-m.maxConsecutiveFailures, 0)
 
 	const maxExponent = 10
-	if exponent > maxExponent {
-		exponent = maxExponent
-	}
+	exponent = min(exponent, maxExponent)
 
 	backoffMultiplier := math.Pow(2, float64(exponent))
-	backoffDuration := time.Duration(float64(m.baseBackoffInterval) * backoffMultiplier)
-
-	if backoffDuration > m.maxBackoffInterval {
-		backoffDuration = m.maxBackoffInterval
-	}
+	backoffDuration := min(time.Duration(float64(m.baseBackoffInterval)*backoffMultiplier), m.maxBackoffInterval)
 
 	return now.Add(backoffDuration)
 }
