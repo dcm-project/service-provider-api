@@ -181,7 +181,7 @@ func (s *ServiceTypeInstanceStore) ExistsByID(ctx context.Context, id string) (b
 }
 
 const (
-	DeletionStatusPending         = "PENDING"
+	DeletionStatusScheduled       = "SCHEDULED"
 	DeletionStatusFailed          = "FAILED"
 	DeletionStatusPendingProvider = "PENDING_PROVIDER"
 )
@@ -192,7 +192,7 @@ func (s *ServiceTypeInstanceStore) MarkForDeletion(ctx context.Context, id strin
 		Model(&model.ServiceTypeInstance{}).
 		Where("id = ?", id).
 		Updates(map[string]any{
-			"deletion_status":       DeletionStatusPending,
+			"deletion_status":       DeletionStatusScheduled,
 			"deletion_requested_at": now,
 			"retry_count":           0,
 			"last_deletion_attempt": nil,
@@ -209,7 +209,7 @@ func (s *ServiceTypeInstanceStore) MarkForDeletion(ctx context.Context, id strin
 func (s *ServiceTypeInstanceStore) ListPendingDeletions(ctx context.Context) ([]model.ServiceTypeInstance, error) {
 	var instances []model.ServiceTypeInstance
 	if err := s.db.WithContext(ctx).
-		Where("deletion_status = ?", DeletionStatusPending).
+		Where("deletion_status = ?", DeletionStatusScheduled).
 		Order("deletion_requested_at ASC").
 		Find(&instances).Error; err != nil {
 		return nil, err
@@ -270,7 +270,7 @@ func (s *ServiceTypeInstanceStore) ResetRetryCount(ctx context.Context, id strin
 		Model(&model.ServiceTypeInstance{}).
 		Where("id = ?", id).
 		Updates(map[string]any{
-			"deletion_status":       DeletionStatusPending,
+			"deletion_status":       DeletionStatusScheduled,
 			"retry_count":           0,
 			"last_deletion_attempt": nil,
 		})
@@ -286,7 +286,7 @@ func (s *ServiceTypeInstanceStore) ResetRetryCount(ctx context.Context, id strin
 func (s *ServiceTypeInstanceStore) MarkProviderDeletionsPendingProvider(ctx context.Context, providerName string) error {
 	return s.db.WithContext(ctx).
 		Model(&model.ServiceTypeInstance{}).
-		Where("provider_name = ? AND deletion_status IN ?", providerName, []string{DeletionStatusPending, DeletionStatusFailed}).
+		Where("provider_name = ? AND deletion_status IN ?", providerName, []string{DeletionStatusScheduled, DeletionStatusFailed}).
 		Update("deletion_status", DeletionStatusPendingProvider).
 		Error
 }
@@ -296,7 +296,7 @@ func (s *ServiceTypeInstanceStore) ReactivateProviderDeletions(ctx context.Conte
 		Model(&model.ServiceTypeInstance{}).
 		Where("provider_name = ? AND deletion_status = ?", providerName, DeletionStatusPendingProvider).
 		Updates(map[string]any{
-			"deletion_status": DeletionStatusPending,
+			"deletion_status": DeletionStatusScheduled,
 			"retry_count":     0,
 		}).
 		Error

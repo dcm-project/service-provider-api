@@ -204,7 +204,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 	})
 
 	Describe("MarkForDeletion", func() {
-		It("sets deletion_status to PENDING", func() {
+		It("sets deletion_status to SCHEDULED", func() {
 			instance := newServiceTypeInstance(kubevirtProvider, "mark-del", map[string]any{})
 			addInstanceToStore(instance)
 
@@ -212,7 +212,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 
 			found, err := s.Get(ctx, instance.ID, true)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*found.DeletionStatus).To(Equal("PENDING"))
+			Expect(*found.DeletionStatus).To(Equal("SCHEDULED"))
 			Expect(found.RetryCount).To(Equal(0))
 			Expect(found.DeletionRequestedAt).NotTo(BeNil())
 		})
@@ -234,7 +234,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 	})
 
 	Describe("ListPendingDeletions", func() {
-		It("returns only PENDING instances", func() {
+		It("returns only SCHEDULED instances", func() {
 			inst1 := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "pending1", map[string]any{}))
 			inst2 := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "pending2", map[string]any{}))
 			addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "active", map[string]any{}))
@@ -310,7 +310,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 	})
 
 	Describe("ResetRetryCount", func() {
-		It("resets retry count and status to PENDING", func() {
+		It("resets retry count and status to SCHEDULED", func() {
 			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "reset-inst", map[string]any{}))
 			Expect(s.MarkForDeletion(ctx, inst.ID)).To(Succeed())
 			Expect(s.IncrementDeletionRetry(ctx, inst.ID)).To(Succeed())
@@ -321,7 +321,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 
 			found, err := s.Get(ctx, inst.ID, true)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*found.DeletionStatus).To(Equal("PENDING"))
+			Expect(*found.DeletionStatus).To(Equal("SCHEDULED"))
 			Expect(found.RetryCount).To(Equal(0))
 			Expect(found.LastDeletionAttempt).To(BeNil())
 		})
@@ -340,7 +340,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 			found, err := s.Get(ctx, inst.ID, true)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(found.ID).To(Equal(inst.ID))
-			Expect(*found.DeletionStatus).To(Equal("PENDING"))
+			Expect(*found.DeletionStatus).To(Equal("SCHEDULED"))
 		})
 
 		It("returns not found for soft-deleted instance when showDeleted is false", func() {
@@ -426,7 +426,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 
 			found, err := s.Get(ctx, inst.ID, true)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*found.DeletionStatus).To(Equal("PENDING"))
+			Expect(*found.DeletionStatus).To(Equal("SCHEDULED"))
 		})
 	})
 
@@ -441,11 +441,11 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 
 			found, err := s.Get(ctx, inst.ID, true)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*found.DeletionStatus).To(Equal("PENDING"))
+			Expect(*found.DeletionStatus).To(Equal("SCHEDULED"))
 			Expect(found.RetryCount).To(Equal(0))
 		})
 
-		It("does not affect PENDING or FAILED instances", func() {
+		It("does not affect SCHEDULED or FAILED instances", func() {
 			pendingInst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "still-pending", map[string]any{}))
 			Expect(s.MarkForDeletion(ctx, pendingInst.ID)).To(Succeed())
 
@@ -457,7 +457,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 
 			found, err := s.Get(ctx, pendingInst.ID, true)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*found.DeletionStatus).To(Equal("PENDING"))
+			Expect(*found.DeletionStatus).To(Equal("SCHEDULED"))
 
 			found, err = s.Get(ctx, failedInst.ID, true)
 			Expect(err).NotTo(HaveOccurred())
@@ -507,7 +507,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 
 			found, err := s.Get(ctx, inst.ID, true)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*found.DeletionStatus).To(Equal("PENDING"))
+			Expect(*found.DeletionStatus).To(Equal("SCHEDULED"))
 		})
 
 		It("is idempotent when instance is already PENDING_PROVIDER", func() {

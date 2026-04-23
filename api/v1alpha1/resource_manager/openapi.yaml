@@ -291,11 +291,11 @@ components:
           readOnly: true
           description: |
             Deletion status for deferred deletions. Absent for active
-            instances. PENDING indicates the instance is queued for cleanup.
+            instances. SCHEDULED indicates the instance is queued for cleanup.
             FAILED indicates the cleanup has exceeded maximum retries.
             PENDING_PROVIDER indicates the instance is waiting for its
             provider to become healthy before cleanup is retried.
-          enum: [PENDING, FAILED, PENDING_PROVIDER]
+          enum: [SCHEDULED, FAILED, PENDING_PROVIDER]
         spec:
           type: object
           description: |

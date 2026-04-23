@@ -527,7 +527,7 @@ var _ = Describe("InstanceService", func() {
 			result, err = instanceService.ListInstances(ctx, nil, true, nil, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*result.Instances).To(HaveLen(1))
-			Expect(string(*(*result.Instances)[0].DeletionStatus)).To(Equal("PENDING"))
+			Expect(string(*(*result.Instances)[0].DeletionStatus)).To(Equal("SCHEDULED"))
 		})
 
 		It("defers deletion without contacting provider even when provider is missing", func() {
@@ -545,11 +545,11 @@ var _ = Describe("InstanceService", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deleteRequested).To(BeFalse())
 
-			// Verify marked as PENDING
+			// Verify marked as SCHEDULED
 			result, err := instanceService.ListInstances(ctx, nil, true, nil, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*result.Instances).To(HaveLen(1))
-			Expect(string(*(*result.Instances)[0].DeletionStatus)).To(Equal("PENDING"))
+			Expect(string(*(*result.Instances)[0].DeletionStatus)).To(Equal("SCHEDULED"))
 		})
 
 		It("resets retry count when deleting a FAILED instance with deferred=true", func() {
@@ -571,11 +571,11 @@ var _ = Describe("InstanceService", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deleteRequested).To(BeFalse())
 
-			// Verify retry count was reset and status is PENDING
+			// Verify retry count was reset and status is SCHEDULED
 			var instance model.ServiceTypeInstance
 			Expect(db.Where("id = ?", *created.Id).First(&instance).Error).NotTo(HaveOccurred())
 			Expect(instance.RetryCount).To(Equal(0))
-			Expect(*instance.DeletionStatus).To(Equal("PENDING"))
+			Expect(*instance.DeletionStatus).To(Equal("SCHEDULED"))
 		})
 
 		It("returns 204 when deleting an already-pending instance and SP succeeds", func() {
@@ -585,10 +585,10 @@ var _ = Describe("InstanceService", func() {
 			}
 			created, _ := instanceService.CreateInstance(ctx, req, nil)
 
-			// Manually mark instance as PENDING
-			pending := "PENDING"
+			// Manually mark instance as SCHEDULED
+			scheduled := "SCHEDULED"
 			Expect(db.Model(&model.ServiceTypeInstance{}).Where("id = ?", *created.Id).Updates(map[string]interface{}{
-				"deletion_status": pending,
+				"deletion_status": scheduled,
 			}).Error).NotTo(HaveOccurred())
 
 			// Delete should succeed (SP is available) and hard-delete the record

@@ -324,7 +324,7 @@ var _ = Describe("Service Instance API", func() {
 			Expect(getResp.JSON200.DeletionStatus).To(BeNil())
 		})
 
-		It("returns 204 on deferred delete when SP fails and marks instance PENDING", func() {
+		It("returns 204 on deferred delete when SP fails and marks instance SCHEDULED", func() {
 			createInstance()
 			clearDeleteStubAndStubFailure()
 
@@ -349,10 +349,10 @@ var _ = Describe("Service Instance API", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(getResp.StatusCode()).To(Equal(http.StatusOK))
 			Expect(getResp.JSON200.DeletionStatus).NotTo(BeNil())
-			Expect(*getResp.JSON200.DeletionStatus).To(Equal(resource_manager.PENDING))
+			Expect(*getResp.JSON200.DeletionStatus).To(Equal(resource_manager.SCHEDULED))
 		})
 
-		It("marks instance PENDING on deferred delete even when SP is available", func() {
+		It("marks instance SCHEDULED on deferred delete even when SP is available", func() {
 			createInstance()
 
 			deferred := true
@@ -363,14 +363,14 @@ var _ = Describe("Service Instance API", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNoContent))
 
-			// Instance should be marked PENDING, not hard-deleted
+			// Instance should be marked SCHEDULED, not hard-deleted
 			showDeleted := true
 			getResp, err := rmApiClient.GetInstanceWithResponse(ctx, instID, &resource_manager.GetInstanceParams{
 				ShowDeleted: &showDeleted,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(getResp.StatusCode()).To(Equal(http.StatusOK))
-			Expect(string(*getResp.JSON200.DeletionStatus)).To(Equal("PENDING"))
+			Expect(string(*getResp.JSON200.DeletionStatus)).To(Equal("SCHEDULED"))
 		})
 
 		It("excludes soft-deleted instances from default LIST", func() {
@@ -423,11 +423,11 @@ var _ = Describe("Service Instance API", func() {
 			Expect(ids).To(ContainElement(instID))
 		})
 
-		It("transitions to PENDING_PROVIDER when provider goes down and back to PENDING on recovery", func() {
+		It("transitions to PENDING_PROVIDER when provider goes down and back to SCHEDULED on recovery", func() {
 			createInstance()
 			clearDeleteStubAndStubFailure()
 
-			// Deferred delete → PENDING
+			// Deferred delete → SCHEDULED
 			deferred := true
 			deleteResp, err := rmApiClient.DeleteInstanceWithResponse(ctx, instID, &resource_manager.DeleteInstanceParams{
 				Deferred: &deferred,
@@ -441,7 +441,7 @@ var _ = Describe("Service Instance API", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(getResp.StatusCode()).To(Equal(http.StatusOK))
-			Expect(*getResp.JSON200.DeletionStatus).To(Equal(resource_manager.PENDING))
+			Expect(*getResp.JSON200.DeletionStatus).To(Equal(resource_manager.SCHEDULED))
 
 			// Remove health stub → provider becomes NotReady
 			resetHealthStubs()
@@ -462,7 +462,7 @@ var _ = Describe("Service Instance API", func() {
 			stubProviderHealthEndpoint()
 			waitForProviderReady(apiClient, ctx, providerID)
 
-			// Instance should transition back to PENDING
+			// Instance should transition back to SCHEDULED
 			Eventually(func() resource_manager.ServiceTypeInstanceDeletionStatus {
 				resp, err := rmApiClient.GetInstanceWithResponse(ctx, instID, &resource_manager.GetInstanceParams{
 					ShowDeleted: &showDeleted,
@@ -471,7 +471,7 @@ var _ = Describe("Service Instance API", func() {
 					return ""
 				}
 				return *resp.JSON200.DeletionStatus
-			}, 30*time.Second, 1*time.Second).Should(Equal(resource_manager.PENDING))
+			}, 30*time.Second, 1*time.Second).Should(Equal(resource_manager.SCHEDULED))
 
 			// Clean up: restore delete stub and hard-delete
 			resetDeleteStubs()
@@ -492,7 +492,7 @@ var _ = Describe("Service Instance API", func() {
 			createInstance()
 			clearDeleteStubAndStubFailure()
 
-			// First delete: deferred, SP fails -> mark PENDING
+			// First delete: deferred, SP fails -> mark SCHEDULED
 			deferred := true
 			deleteResp, err := rmApiClient.DeleteInstanceWithResponse(ctx, instID, &resource_manager.DeleteInstanceParams{
 				Deferred: &deferred,
@@ -504,7 +504,7 @@ var _ = Describe("Service Instance API", func() {
 			resetDeleteStubs()
 			stubProviderDeleteInstance()
 
-			// Second delete: should hard-delete the PENDING instance
+			// Second delete: should hard-delete the SCHEDULED instance
 			deleteResp, err = rmApiClient.DeleteInstanceWithResponse(ctx, instID, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNoContent))
