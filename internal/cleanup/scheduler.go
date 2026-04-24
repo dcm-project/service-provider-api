@@ -85,6 +85,17 @@ func (s *Scheduler) ProcessPendingDeletions(ctx context.Context) {
 
 func (s *Scheduler) processOne(ctx context.Context, instance model.ServiceTypeInstance) {
 	log := logging.FromContext(ctx)
+
+	marked, err := s.store.ServiceTypeInstance().MarkPendingProviderIfNotReady(ctx, instance.ID)
+	if err != nil {
+		log.Error("Failed to check provider health for instance", "instance_id", instance.ID, "error", err)
+		return
+	}
+	if marked {
+		log.Info("Instance marked as PENDING_PROVIDER, provider is not ready", "instance_id", instance.ID, "provider_name", instance.ProviderName)
+		return
+	}
+
 	if err := s.instanceService.DeleteFromProvider(ctx, &instance); err != nil {
 		log.Error("Failed to delete instance from provider", "instance_id", instance.ID, "provider_name", instance.ProviderName, "error", err)
 		s.handleRetryOrFail(ctx, instance)
