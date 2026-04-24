@@ -99,7 +99,7 @@ func run() int {
 	defer statusConsumer.Stop()
 
 	// Start health check monitor
-	healthMonitor := healthcheck.NewMonitor(dataStore.Provider(), cfg.HealthCheck)
+	healthMonitor := healthcheck.NewMonitor(dataStore.Provider(), dataStore.ServiceTypeInstance(), cfg.HealthCheck)
 	healthMonitor.Start(ctx)
 	defer healthMonitor.Stop()
 	slog.Info("Health check monitor started", "interval", cfg.HealthCheck.Interval)

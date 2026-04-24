@@ -135,8 +135,7 @@ func clearDeleteStubAndStubFailure() {
 	stubProviderDeleteInstanceFailure()
 }
 
-func resetDeleteStubs() {
-	// Get all mappings and remove DELETE ones
+func resetStubsByMethod(method string) {
 	resp, err := http.Get(wireMockURL() + "/__admin/mappings")
 	if err != nil {
 		return
@@ -154,9 +153,30 @@ func resetDeleteStubs() {
 	json.NewDecoder(resp.Body).Decode(&result)
 
 	for _, m := range result.Mappings {
-		if m.Request.Method == "DELETE" {
+		if m.Request.Method == method {
 			req, _ := http.NewRequest(http.MethodDelete, wireMockURL()+"/__admin/mappings/"+m.ID, nil)
 			http.DefaultClient.Do(req)
 		}
 	}
+}
+
+func resetDeleteStubs() {
+	resetStubsByMethod("DELETE")
+}
+
+func resetHealthStubs() {
+	resetStubsByMethod("GET")
+}
+
+func waitForProviderNotReady(apiClient *providerclient.ClientWithResponses, ctx context.Context, providerID string) {
+	Eventually(func() string {
+		getResp, err := apiClient.GetProviderWithResponse(ctx, providerID)
+		if err != nil || getResp.StatusCode() != http.StatusOK || getResp.JSON200 == nil {
+			return ""
+		}
+		if getResp.JSON200.HealthStatus == nil {
+			return ""
+		}
+		return *getResp.JSON200.HealthStatus
+	}, 60*time.Second, 1*time.Second).Should(Equal("not_ready"), "Provider should become not ready")
 }

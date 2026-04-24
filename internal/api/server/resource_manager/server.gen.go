@@ -18,8 +18,9 @@ import (
 
 // Defines values for ServiceTypeInstanceDeletionStatus.
 const (
-	FAILED  ServiceTypeInstanceDeletionStatus = "FAILED"
-	PENDING ServiceTypeInstanceDeletionStatus = "PENDING"
+	FAILED          ServiceTypeInstanceDeletionStatus = "FAILED"
+	PENDINGPROVIDER ServiceTypeInstanceDeletionStatus = "PENDING_PROVIDER"
+	SCHEDULED       ServiceTypeInstanceDeletionStatus = "SCHEDULED"
 )
 
 // Valid indicates whether the value is a known member of the ServiceTypeInstanceDeletionStatus enum.
@@ -27,7 +28,9 @@ func (e ServiceTypeInstanceDeletionStatus) Valid() bool {
 	switch e {
 	case FAILED:
 		return true
-	case PENDING:
+	case PENDINGPROVIDER:
+		return true
+	case SCHEDULED:
 		return true
 	default:
 		return false
@@ -67,8 +70,10 @@ type ServiceTypeInstance struct {
 	CreateTime *time.Time `json:"create_time,omitempty"`
 
 	// DeletionStatus Deletion status for deferred deletions. Absent for active
-	// instances. PENDING indicates the instance is queued for cleanup.
+	// instances. SCHEDULED indicates the instance is queued for cleanup.
 	// FAILED indicates the cleanup has exceeded maximum retries.
+	// PENDING_PROVIDER indicates the instance is waiting for its
+	// provider to become healthy before cleanup is retried.
 	DeletionStatus *ServiceTypeInstanceDeletionStatus `json:"deletion_status,omitempty"`
 
 	// Id Unique identifier for the Service Type Instance
@@ -92,8 +97,10 @@ type ServiceTypeInstance struct {
 }
 
 // ServiceTypeInstanceDeletionStatus Deletion status for deferred deletions. Absent for active
-// instances. PENDING indicates the instance is queued for cleanup.
+// instances. SCHEDULED indicates the instance is queued for cleanup.
 // FAILED indicates the cleanup has exceeded maximum retries.
+// PENDING_PROVIDER indicates the instance is waiting for its
+// provider to become healthy before cleanup is retried.
 type ServiceTypeInstanceDeletionStatus string
 
 // ServiceTypeInstanceList Paginated list of instances
