@@ -101,7 +101,7 @@ var _ = Describe("Scheduler", func() {
 
 			scheduler.ProcessPendingDeletions(ctx)
 
-			// Instance should be parked as PENDING_PROVIDER, not deleted
+			// Instance should be marked as PENDING_PROVIDER, not deleted
 			found, err := dataStore.ServiceTypeInstance().Get(ctx, inst.ID, true)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*found.DeletionStatus).To(Equal("PENDING_PROVIDER"))

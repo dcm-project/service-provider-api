@@ -86,13 +86,13 @@ func (s *Scheduler) ProcessPendingDeletions(ctx context.Context) {
 func (s *Scheduler) processOne(ctx context.Context, instance model.ServiceTypeInstance) {
 	log := logging.FromContext(ctx)
 
-	parked, err := s.store.ServiceTypeInstance().MarkPendingProviderIfNotReady(ctx, instance.ID)
+	marked, err := s.store.ServiceTypeInstance().MarkPendingProviderIfNotReady(ctx, instance.ID)
 	if err != nil {
 		log.Error("Failed to check provider health for instance", "instance_id", instance.ID, "error", err)
 		return
 	}
-	if parked {
-		log.Info("Instance parked as PENDING_PROVIDER, provider is not ready", "instance_id", instance.ID, "provider_name", instance.ProviderName)
+	if marked {
+		log.Info("Instance marked as PENDING_PROVIDER, provider is not ready", "instance_id", instance.ID, "provider_name", instance.ProviderName)
 		return
 	}
 

@@ -432,7 +432,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 
 	Describe("ReactivateProviderDeletions", func() {
 		It("transitions PENDING_PROVIDER to PENDING with retry_count=0", func() {
-			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "parked", map[string]any{}))
+			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "marked", map[string]any{}))
 			Expect(s.MarkForDeletion(ctx, inst.ID)).To(Succeed())
 			Expect(s.IncrementDeletionRetry(ctx, inst.ID)).To(Succeed())
 			Expect(s.MarkProviderDeletionsPendingProvider(ctx, kubevirtProvider)).To(Succeed())
@@ -487,9 +487,9 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "to-park", map[string]any{}))
 			Expect(s.MarkForDeletion(ctx, inst.ID)).To(Succeed())
 
-			parked, err := s.MarkPendingProviderIfNotReady(ctx, inst.ID)
+			marked, err := s.MarkPendingProviderIfNotReady(ctx, inst.ID)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(parked).To(BeTrue())
+			Expect(marked).To(BeTrue())
 
 			found, err := s.Get(ctx, inst.ID, true)
 			Expect(err).NotTo(HaveOccurred())
@@ -501,9 +501,9 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "healthy", map[string]any{}))
 			Expect(s.MarkForDeletion(ctx, inst.ID)).To(Succeed())
 
-			parked, err := s.MarkPendingProviderIfNotReady(ctx, inst.ID)
+			marked, err := s.MarkPendingProviderIfNotReady(ctx, inst.ID)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(parked).To(BeFalse())
+			Expect(marked).To(BeFalse())
 
 			found, err := s.Get(ctx, inst.ID, true)
 			Expect(err).NotTo(HaveOccurred())
@@ -512,16 +512,16 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 
 		It("is idempotent when instance is already PENDING_PROVIDER", func() {
 			addProvider(kubevirtProvider, model.HealthStatusNotReady)
-			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "already-parked", map[string]any{}))
+			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "already-marked", map[string]any{}))
 			Expect(s.MarkForDeletion(ctx, inst.ID)).To(Succeed())
 
-			parked1, err := s.MarkPendingProviderIfNotReady(ctx, inst.ID)
+			marked1, err := s.MarkPendingProviderIfNotReady(ctx, inst.ID)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(parked1).To(BeTrue())
+			Expect(marked1).To(BeTrue())
 
-			parked2, err := s.MarkPendingProviderIfNotReady(ctx, inst.ID)
+			marked2, err := s.MarkPendingProviderIfNotReady(ctx, inst.ID)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(parked2).To(BeTrue())
+			Expect(marked2).To(BeTrue())
 
 			found, err := s.Get(ctx, inst.ID, true)
 			Expect(err).NotTo(HaveOccurred())
