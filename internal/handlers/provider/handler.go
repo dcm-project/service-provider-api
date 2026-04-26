@@ -59,7 +59,7 @@ func (h *Handler) ListProviders(ctx context.Context, request providerserver.List
 		return providerserver.ListProviders400ApplicationProblemPlusJSONResponse(newError("list-error", "Failed to list providers", err.Error(), 400)), nil
 	}
 
-	response := providerserver.ListProviders200JSONResponse{Providers: &result.Providers}
+	response := providerserver.ListProviders200JSONResponse{Results: &result.Providers}
 	if result.NextPageToken != "" {
 		response.NextPageToken = &result.NextPageToken
 	}

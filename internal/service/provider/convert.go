@@ -2,6 +2,7 @@ package provider
 
 import (
 	"encoding/json"
+	"fmt"
 
 	providerserver "github.com/dcm-project/service-provider-manager/internal/api/server/provider"
 	"github.com/dcm-project/service-provider-manager/internal/service"
@@ -10,8 +11,10 @@ import (
 
 // ModelToProvider converts a database model to an API response type.
 func ModelToProvider(m *model.Provider) *providerserver.Provider {
+	path := fmt.Sprintf("providers/%s", m.ID)
 	p := &providerserver.Provider{
 		Id:            &m.ID,
+		Path:          &path,
 		Name:          m.Name,
 		ServiceType:   m.ServiceType,
 		SchemaVersion: m.SchemaVersion,

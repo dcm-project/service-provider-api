@@ -86,7 +86,7 @@ type Provider struct {
 type ProviderList struct {
 	// NextPageToken Token for retrieving the next page of results
 	NextPageToken *string     `json:"next_page_token,omitempty"`
-	Providers     *[]Provider `json:"providers,omitempty"`
+	Results       *[]Provider `json:"results,omitempty"`
 }
 
 // ProviderMetadata Additional metadata about the provider

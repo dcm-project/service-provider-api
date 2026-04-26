@@ -393,7 +393,7 @@ components:
       type: object
       description: Paginated list of providers
       properties:
-        providers:
+        results:
           type: array
           items:
             $ref: '#/components/schemas/Provider'

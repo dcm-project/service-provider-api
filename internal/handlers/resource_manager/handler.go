@@ -51,9 +51,9 @@ func (h *Handler) ListInstances(ctx context.Context, request server.ListInstance
 		return handleListInstancesError(err), nil
 	}
 
-	instances := convertAPIListToServer(result.Instances)
+	instances := convertAPIListToServer(result.Results)
 	response := server.ListInstances200JSONResponse{
-		Instances:     &instances,
+		Results:       &instances,
 		NextPageToken: result.NextPageToken,
 	}
 

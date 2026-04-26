@@ -82,8 +82,8 @@ var _ = Describe("Provider API", func() {
 			listResp, err := apiClient.ListProvidersWithResponse(ctx, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.StatusCode()).To(Equal(http.StatusOK))
-			Expect(listResp.JSON200.Providers).NotTo(BeNil())
-			Expect(len(*listResp.JSON200.Providers)).To(BeNumerically(">=", 1))
+			Expect(listResp.JSON200.Results).NotTo(BeNil())
+			Expect(len(*listResp.JSON200.Results)).To(BeNumerically(">=", 1))
 
 			By("updating the provider")
 			updateResp, err := apiClient.ApplyProviderWithResponse(ctx, providerID, providerapi.Provider{

@@ -1,5 +1,7 @@
 extends:
-  - https://raw.githubusercontent.com/aep-dev/aep-openapi-linter/main/spectral.yaml
+  # Pinned to aep-openapi-linter commit 0f10ae5 (2026-03-30).
+  # To update: check https://github.com/aep-dev/aep-openapi-linter/commits/main
+  - https://raw.githubusercontent.com/aep-dev/aep-openapi-linter/0f10ae50bba3d775553cfd75e25b1d6a68accd70/spectral.yaml
 
 overrides:
   - files: ["api/v1alpha1/resource_manager/openapi.yaml"]
@@ -18,3 +20,48 @@ rules:
       functionOptions:
         schema:
           type: object
+
+  aep-132-list-results-field:
+    description: List response array must be named 'results' per AEP-132
+    message: "List response schema should have a 'results' array field, not a custom-named field"
+    severity: warn
+    given: "$.components.schemas[?(@.properties.next_page_token)].properties"
+    then:
+      field: results
+      function: truthy
+
+  aep-164-delete-time-field:
+    description: Resources supporting soft-delete should include delete_time field per AEP-164
+    message: "Resource with deletion_status should have a 'delete_time' field per AEP-164"
+    severity: info
+    given: "$.components.schemas[?(@.properties.deletion_status)].properties"
+    then:
+      field: delete_time
+      function: truthy
+
+  aep-148-path-field:
+    description: Resources with x-aep-resource should have a path field per AEP-148
+    message: "Resource should include a 'path' field per AEP-148"
+    severity: info
+    given: "$.components.schemas[*][?(@property === 'x-aep-resource')].^.properties"
+    then:
+      field: path
+      function: truthy
+
+  aep-148-create-time-field:
+    description: Resources with x-aep-resource should have a create_time field per AEP-148
+    message: "Resource should include a 'create_time' field per AEP-148"
+    severity: info
+    given: "$.components.schemas[*][?(@property === 'x-aep-resource')].^.properties"
+    then:
+      field: create_time
+      function: truthy
+
+  aep-148-update-time-field:
+    description: Resources with x-aep-resource should have an update_time field per AEP-148
+    message: "Resource should include an 'update_time' field per AEP-148"
+    severity: info
+    given: "$.components.schemas[*][?(@property === 'x-aep-resource')].^.properties"
+    then:
+      field: update_time
+      function: truthy

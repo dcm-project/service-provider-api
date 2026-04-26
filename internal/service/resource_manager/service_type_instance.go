@@ -163,7 +163,7 @@ func (s *InstanceService) ListInstances(ctx context.Context, providerName *strin
 		"has_next_page", result.NextPageToken != nil,
 	)
 	apiResult := &resource_manager.ServiceTypeInstanceList{
-		Instances:     &apiInstances,
+		Results:       &apiInstances,
 		NextPageToken: result.NextPageToken,
 	}
 

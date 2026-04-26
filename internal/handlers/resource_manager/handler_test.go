@@ -206,7 +206,7 @@ var _ = Describe("Resource Manager Handler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			jsonResp, ok := resp.(server.ListInstances200JSONResponse)
 			Expect(ok).To(BeTrue())
-			Expect(*jsonResp.Instances).To(BeEmpty())
+			Expect(*jsonResp.Results).To(BeEmpty())
 		})
 
 		It("returns instances", func() {
@@ -227,7 +227,7 @@ var _ = Describe("Resource Manager Handler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			jsonResp, ok := resp.(server.ListInstances200JSONResponse)
 			Expect(ok).To(BeTrue())
-			Expect(*jsonResp.Instances).To(HaveLen(3))
+			Expect(*jsonResp.Results).To(HaveLen(3))
 		})
 
 		It("respects max page size and returns next page token", func() {
@@ -254,7 +254,7 @@ var _ = Describe("Resource Manager Handler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			jsonResp, ok := resp.(server.ListInstances200JSONResponse)
 			Expect(ok).To(BeTrue())
-			Expect(*jsonResp.Instances).To(HaveLen(2))
+			Expect(*jsonResp.Results).To(HaveLen(2))
 			Expect(jsonResp.NextPageToken).NotTo(BeNil())
 			Expect(*jsonResp.NextPageToken).NotTo(BeEmpty())
 
@@ -271,7 +271,7 @@ var _ = Describe("Resource Manager Handler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			jsonResp2, ok := resp2.(server.ListInstances200JSONResponse)
 			Expect(ok).To(BeTrue())
-			Expect(*jsonResp2.Instances).To(HaveLen(2))
+			Expect(*jsonResp2.Results).To(HaveLen(2))
 			Expect(jsonResp2.NextPageToken).NotTo(BeNil())
 
 			// Third page: should have 1 item and no next token
@@ -287,7 +287,7 @@ var _ = Describe("Resource Manager Handler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			jsonResp3, ok := resp3.(server.ListInstances200JSONResponse)
 			Expect(ok).To(BeTrue())
-			Expect(*jsonResp3.Instances).To(HaveLen(1))
+			Expect(*jsonResp3.Results).To(HaveLen(1))
 			Expect(jsonResp3.NextPageToken).To(BeNil())
 		})
 	})

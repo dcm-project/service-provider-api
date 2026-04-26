@@ -34,5 +34,9 @@ func ModelToAPI(instance *model.ServiceTypeInstance) *resource_manager.ServiceTy
 		result.DeletionStatus = &ds
 	}
 
+	if instance.DeletionRequestedAt != nil {
+		result.DeleteTime = service.PtrTime(*instance.DeletionRequestedAt)
+	}
+
 	return result
 }

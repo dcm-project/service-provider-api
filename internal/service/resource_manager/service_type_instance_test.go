@@ -341,7 +341,7 @@ var _ = Describe("InstanceService", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).NotTo(BeNil())
-			Expect(*result.Instances).To(BeEmpty())
+			Expect(*result.Results).To(BeEmpty())
 		})
 
 		It("returns all instances", func() {
@@ -358,7 +358,7 @@ var _ = Describe("InstanceService", func() {
 			result, err := instanceService.ListInstances(ctx, nil, false, nil, nil)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*result.Instances).To(HaveLen(3))
+			Expect(*result.Results).To(HaveLen(3))
 		})
 
 		It("respects max page size and returns next page token", func() {
@@ -376,7 +376,7 @@ var _ = Describe("InstanceService", func() {
 			result, err := instanceService.ListInstances(ctx, nil, false, &maxPageSize, nil)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*result.Instances).To(HaveLen(2))
+			Expect(*result.Results).To(HaveLen(2))
 			Expect(result.NextPageToken).NotTo(BeNil())
 			Expect(*result.NextPageToken).NotTo(BeEmpty())
 
@@ -384,22 +384,22 @@ var _ = Describe("InstanceService", func() {
 			secondPage, err := instanceService.ListInstances(ctx, nil, false, &maxPageSize, result.NextPageToken)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*secondPage.Instances).To(HaveLen(2))
+			Expect(*secondPage.Results).To(HaveLen(2))
 			Expect(secondPage.NextPageToken).NotTo(BeNil())
 
 			// Verify instances are different between pages
 			firstIDs := make(map[string]bool)
-			for _, inst := range *result.Instances {
+			for _, inst := range *result.Results {
 				firstIDs[*inst.Id] = true
 			}
-			for _, inst := range *secondPage.Instances {
+			for _, inst := range *secondPage.Results {
 				Expect(firstIDs[*inst.Id]).To(BeFalse(), "Instance should not appear in both pages")
 			}
 
 			// Get third page (last page with 1 item)
 			thirdPage, err := instanceService.ListInstances(ctx, nil, false, &maxPageSize, secondPage.NextPageToken)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*thirdPage.Instances).To(HaveLen(1))
+			Expect(*thirdPage.Results).To(HaveLen(1))
 			Expect(thirdPage.NextPageToken).To(BeNil())
 		})
 
@@ -438,8 +438,8 @@ var _ = Describe("InstanceService", func() {
 			result, err := instanceService.ListInstances(ctx, &filterProvider, false, nil, nil)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*result.Instances).To(HaveLen(2))
-			for _, inst := range *result.Instances {
+			Expect(*result.Results).To(HaveLen(2))
+			for _, inst := range *result.Results {
 				Expect(inst.ProviderName).To(Equal("test-provider"))
 			}
 
@@ -448,8 +448,8 @@ var _ = Describe("InstanceService", func() {
 			result, err = instanceService.ListInstances(ctx, &filterProvider, false, nil, nil)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*result.Instances).To(HaveLen(3))
-			for _, inst := range *result.Instances {
+			Expect(*result.Results).To(HaveLen(3))
+			for _, inst := range *result.Results {
 				Expect(inst.ProviderName).To(Equal("second-provider"))
 			}
 		})
@@ -521,13 +521,13 @@ var _ = Describe("InstanceService", func() {
 			// Instance should be marked for deletion, not visible in default list
 			result, err := instanceService.ListInstances(ctx, nil, false, nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*result.Instances).To(BeEmpty())
+			Expect(*result.Results).To(BeEmpty())
 
 			// But visible with show_deleted
 			result, err = instanceService.ListInstances(ctx, nil, true, nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*result.Instances).To(HaveLen(1))
-			Expect(string(*(*result.Instances)[0].DeletionStatus)).To(Equal("SCHEDULED"))
+			Expect(*result.Results).To(HaveLen(1))
+			Expect(string(*(*result.Results)[0].DeletionStatus)).To(Equal("SCHEDULED"))
 		})
 
 		It("defers deletion without contacting provider even when provider is missing", func() {
@@ -548,8 +548,8 @@ var _ = Describe("InstanceService", func() {
 			// Verify marked as SCHEDULED
 			result, err := instanceService.ListInstances(ctx, nil, true, nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*result.Instances).To(HaveLen(1))
-			Expect(string(*(*result.Instances)[0].DeletionStatus)).To(Equal("SCHEDULED"))
+			Expect(*result.Results).To(HaveLen(1))
+			Expect(string(*(*result.Results)[0].DeletionStatus)).To(Equal("SCHEDULED"))
 		})
 
 		It("resets retry count when deleting a FAILED instance with deferred=true", func() {

@@ -136,7 +136,7 @@ var _ = Describe("Handler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			jsonResp, ok := resp.(providerserver.ListProviders200JSONResponse)
 			Expect(ok).To(BeTrue())
-			Expect(*jsonResp.Providers).To(BeEmpty())
+			Expect(*jsonResp.Results).To(BeEmpty())
 		})
 
 		It("returns providers", func() {
@@ -159,7 +159,7 @@ var _ = Describe("Handler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			jsonResp, ok := resp.(providerserver.ListProviders200JSONResponse)
 			Expect(ok).To(BeTrue())
-			Expect(*jsonResp.Providers).To(HaveLen(2))
+			Expect(*jsonResp.Results).To(HaveLen(2))
 		})
 	})
 

@@ -95,8 +95,9 @@ check-generate-api: generate-api
 
 # Check AEP compliance
 check-aep:
-	spectral lint --fail-severity=warn ./api/v1alpha1/provider/openapi.yaml
-	spectral lint --fail-severity=warn ./api/v1alpha1/resource_manager/openapi.yaml
+	@command -v spectral >/dev/null 2>&1 || { echo "Error: 'spectral' not found. Install with: npm install -g @stoplight/spectral-cli"; exit 1; }
+	spectral lint --ruleset .spectral.yaml --fail-severity=warn ./api/v1alpha1/provider/openapi.yaml
+	spectral lint --ruleset .spectral.yaml --fail-severity=warn ./api/v1alpha1/resource_manager/openapi.yaml
 
 COVER_PKGS := ./internal/store/...,./internal/config/...,./internal/api_server/...,./internal/service/...,./internal/handlers/...
 

@@ -257,7 +257,7 @@ components:
       x-aep-resource:
         type: serviceprovider.dcm.io/service-type-instance
         singular: service-type-instance
-        plural: service-type-instance
+        plural: service-type-instances
         patterns:
           - service-type-instances/{instance_id}
       required:
@@ -296,6 +296,11 @@ components:
             PENDING_PROVIDER indicates the instance is waiting for its
             provider to become healthy before cleanup is retried.
           enum: [SCHEDULED, FAILED, PENDING_PROVIDER]
+        delete_time:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Timestamp when the instance was marked for deletion
         spec:
           type: object
           description: |
@@ -316,7 +321,7 @@ components:
       type: object
       description: Paginated list of instances
       properties:
-        instances:
+        results:
           type: array
           items:
             $ref: '#/components/schemas/ServiceTypeInstance'

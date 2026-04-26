@@ -69,6 +69,9 @@ type ServiceTypeInstance struct {
 	// CreateTime Timestamp when the instance was first created
 	CreateTime *time.Time `json:"create_time,omitempty"`
 
+	// DeleteTime Timestamp when the instance was marked for deletion
+	DeleteTime *time.Time `json:"delete_time,omitempty"`
+
 	// DeletionStatus Deletion status for deferred deletions. Absent for active
 	// instances. SCHEDULED indicates the instance is queued for cleanup.
 	// FAILED indicates the cleanup has exceeded maximum retries.
@@ -105,10 +108,9 @@ type ServiceTypeInstanceDeletionStatus string
 
 // ServiceTypeInstanceList Paginated list of instances
 type ServiceTypeInstanceList struct {
-	Instances *[]ServiceTypeInstance `json:"instances,omitempty"`
-
 	// NextPageToken Token for retrieving the next page of results
-	NextPageToken *string `json:"next_page_token,omitempty"`
+	NextPageToken *string                `json:"next_page_token,omitempty"`
+	Results       *[]ServiceTypeInstance `json:"results,omitempty"`
 }
 
 // InstanceIdPath defines model for InstanceIdPath.

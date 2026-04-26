@@ -202,10 +202,10 @@ var _ = Describe("Service Instance API", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.StatusCode()).To(Equal(http.StatusOK))
-			Expect(listResp.JSON200.Instances).NotTo(BeNil())
+			Expect(listResp.JSON200.Results).NotTo(BeNil())
 
-			ids := make([]string, len(*listResp.JSON200.Instances))
-			for i, inst := range *listResp.JSON200.Instances {
+			ids := make([]string, len(*listResp.JSON200.Results))
+			for i, inst := range *listResp.JSON200.Results {
 				ids[i] = *inst.Id
 			}
 			Expect(ids).To(ContainElement(instID))
@@ -235,8 +235,8 @@ var _ = Describe("Service Instance API", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.StatusCode()).To(Equal(http.StatusOK))
 
-			if listResp.JSON200.Instances != nil {
-				Expect(len(*listResp.JSON200.Instances)).To(BeNumerically("<=", maxPageSize))
+			if listResp.JSON200.Results != nil {
+				Expect(len(*listResp.JSON200.Results)).To(BeNumerically("<=", maxPageSize))
 			}
 		})
 
@@ -389,8 +389,8 @@ var _ = Describe("Service Instance API", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.StatusCode()).To(Equal(http.StatusOK))
 
-			if listResp.JSON200.Instances != nil {
-				for _, inst := range *listResp.JSON200.Instances {
+			if listResp.JSON200.Results != nil {
+				for _, inst := range *listResp.JSON200.Results {
 					Expect(*inst.Id).NotTo(Equal(instID))
 				}
 			}
@@ -414,10 +414,10 @@ var _ = Describe("Service Instance API", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.StatusCode()).To(Equal(http.StatusOK))
-			Expect(listResp.JSON200.Instances).NotTo(BeNil())
+			Expect(listResp.JSON200.Results).NotTo(BeNil())
 
-			ids := make([]string, len(*listResp.JSON200.Instances))
-			for i, inst := range *listResp.JSON200.Instances {
+			ids := make([]string, len(*listResp.JSON200.Results))
+			for i, inst := range *listResp.JSON200.Results {
 				ids[i] = *inst.Id
 			}
 			Expect(ids).To(ContainElement(instID))
