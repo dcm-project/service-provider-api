@@ -153,7 +153,7 @@ var _ = Describe("InstanceService", func() {
 				Name:         "not-ready-provider",
 				ServiceType:  "vm",
 				Endpoint:     mockProvider.URL,
-				HealthStatus: model.HealthStatusNotReady,
+				HealthStatus: model.HealthStatusUnavailable,
 			}
 			Expect(db.Create(&notReadyProvider).Error).NotTo(HaveOccurred())
 
