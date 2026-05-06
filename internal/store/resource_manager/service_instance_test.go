@@ -482,9 +482,23 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 			}
 		})
 
-		It("parks instance and returns true when provider is NotReady", func() {
-			addProvider(kubevirtProvider, model.HealthStatusNotReady)
+		It("parks instance and returns true when provider is Unavailable", func() {
+			addProvider(kubevirtProvider, model.HealthStatusUnavailable)
 			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "to-park", map[string]any{}))
+			Expect(s.MarkForDeletion(ctx, inst.ID)).To(Succeed())
+
+			marked, err := s.MarkPendingProviderIfNotReady(ctx, inst.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(marked).To(BeTrue())
+
+			found, err := s.Get(ctx, inst.ID, true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*found.DeletionStatus).To(Equal("PENDING_PROVIDER"))
+		})
+
+		It("parks instance and returns true when provider is Unhealthy", func() {
+			addProvider(kubevirtProvider, model.HealthStatusUnhealthy)
+			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "to-park-unhealthy", map[string]any{}))
 			Expect(s.MarkForDeletion(ctx, inst.ID)).To(Succeed())
 
 			marked, err := s.MarkPendingProviderIfNotReady(ctx, inst.ID)
@@ -511,7 +525,7 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 		})
 
 		It("is idempotent when instance is already PENDING_PROVIDER", func() {
-			addProvider(kubevirtProvider, model.HealthStatusNotReady)
+			addProvider(kubevirtProvider, model.HealthStatusUnavailable)
 			inst := addInstanceToStore(newServiceTypeInstance(kubevirtProvider, "already-marked", map[string]any{}))
 			Expect(s.MarkForDeletion(ctx, inst.ID)).To(Succeed())
 

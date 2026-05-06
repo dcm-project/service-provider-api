@@ -2,6 +2,7 @@ package healthcheck_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"time"
@@ -161,6 +162,32 @@ func (m *mockInstanceStore) MarkDeletionFailed(_ context.Context, _ string) erro
 func (m *mockInstanceStore) HardDelete(_ context.Context, _ string) error             { return nil }
 func (m *mockInstanceStore) ResetRetryCount(_ context.Context, _ string) error        { return nil }
 
+func healthyServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = fmt.Fprint(w, `{"status":"healthy"}`)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+}
+
+func unhealthyServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprint(w, `{"status":"unhealthy"}`)
+	}))
+}
+
+func failingServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+}
+
 var _ = Describe("Monitor", func() {
 	var (
 		cfg     *config.HealthCheckConfig
@@ -186,7 +213,19 @@ var _ = Describe("Monitor", func() {
 			})
 		})
 
-		Context("for a NotReady provider with exponential backoff", func() {
+		Context("for an Unhealthy provider", func() {
+			It("schedules next check at the configured interval", func() {
+				mockStore := &mockProviderStore{}
+				monitor = healthcheck.NewMonitor(mockStore, &mockInstanceStore{}, cfg)
+				now := time.Now()
+
+				nextCheck := monitor.CalculateNextCheckTime(now, model.HealthStatusUnhealthy, 0)
+
+				Expect(nextCheck.Sub(now)).To(Equal(cfg.Interval))
+			})
+		})
+
+		Context("for an Unavailable provider with exponential backoff", func() {
 			var (
 				mockStore *mockProviderStore
 				now       time.Time
@@ -198,23 +237,23 @@ var _ = Describe("Monitor", func() {
 				now = time.Now()
 			})
 
-			It("uses base backoff interval when just became NotReady (3 failures)", func() {
-				nextCheck := monitor.CalculateNextCheckTime(now, model.HealthStatusNotReady, 3)
+			It("uses base backoff interval when just became Unavailable (3 failures)", func() {
+				nextCheck := monitor.CalculateNextCheckTime(now, model.HealthStatusUnavailable, 3)
 				Expect(nextCheck.Sub(now)).To(Equal(cfg.BaseBackoffInterval))
 			})
 
 			It("doubles backoff for 4 consecutive failures", func() {
-				nextCheck := monitor.CalculateNextCheckTime(now, model.HealthStatusNotReady, 4)
+				nextCheck := monitor.CalculateNextCheckTime(now, model.HealthStatusUnavailable, 4)
 				Expect(nextCheck.Sub(now)).To(Equal(cfg.BaseBackoffInterval * 2))
 			})
 
 			It("quadruples backoff for 5 consecutive failures", func() {
-				nextCheck := monitor.CalculateNextCheckTime(now, model.HealthStatusNotReady, 5)
+				nextCheck := monitor.CalculateNextCheckTime(now, model.HealthStatusUnavailable, 5)
 				Expect(nextCheck.Sub(now)).To(Equal(cfg.BaseBackoffInterval * 4))
 			})
 
 			It("caps backoff at max interval for many failures", func() {
-				nextCheck := monitor.CalculateNextCheckTime(now, model.HealthStatusNotReady, 100)
+				nextCheck := monitor.CalculateNextCheckTime(now, model.HealthStatusUnavailable, 100)
 				Expect(nextCheck.Sub(now)).To(Equal(cfg.MaxBackoffInterval))
 			})
 		})
@@ -223,13 +262,7 @@ var _ = Describe("Monitor", func() {
 	Describe("CheckProviders", func() {
 		Context("with a healthy provider", func() {
 			It("sets status to Ready with zero consecutive failures", func() {
-				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					if r.URL.Path == "/health" {
-						w.WriteHeader(http.StatusOK)
-						return
-					}
-					w.WriteHeader(http.StatusNotFound)
-				}))
+				server := healthyServer()
 				defer server.Close()
 
 				providerID := uuid.New().String()
@@ -254,22 +287,19 @@ var _ = Describe("Monitor", func() {
 			})
 		})
 
-		Context("with an unhealthy provider", func() {
-			It("becomes NotReady after reaching max consecutive failures", func() {
-				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-					w.WriteHeader(http.StatusInternalServerError)
-				}))
+		Context("with a provider reporting unhealthy backing provider", func() {
+			It("transitions to Unhealthy immediately", func() {
+				server := unhealthyServer()
 				defer server.Close()
 
 				providerID := uuid.New().String()
 				mockStore := &mockProviderStore{
 					providers: model.ProviderList{
 						{
-							ID:                  providerID,
-							Name:                "test-provider",
-							Endpoint:            server.URL,
-							HealthStatus:        model.HealthStatusReady,
-							ConsecutiveFailures: 2, // Already 2 failures, this will be the 3rd
+							ID:           providerID,
+							Name:         "test-provider",
+							Endpoint:     server.URL,
+							HealthStatus: model.HealthStatusReady,
 						},
 					},
 				}
@@ -279,14 +309,14 @@ var _ = Describe("Monitor", func() {
 
 				Expect(mockStore.healthStatusUpdates).To(HaveLen(1))
 				update := mockStore.healthStatusUpdates[0]
-				Expect(update.Status).To(Equal(model.HealthStatusNotReady))
-				Expect(update.ConsecutiveFailures).To(Equal(3))
+				Expect(update.Status).To(Equal(model.HealthStatusUnhealthy))
+				Expect(update.ConsecutiveFailures).To(Equal(0))
 			})
+		})
 
-			It("stays Ready until reaching max consecutive failures", func() {
-				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-					w.WriteHeader(http.StatusInternalServerError)
-				}))
+		Context("with a failing provider", func() {
+			It("becomes Unavailable after reaching max consecutive failures", func() {
+				server := failingServer()
 				defer server.Close()
 
 				providerID := uuid.New().String()
@@ -297,7 +327,33 @@ var _ = Describe("Monitor", func() {
 							Name:                "test-provider",
 							Endpoint:            server.URL,
 							HealthStatus:        model.HealthStatusReady,
-							ConsecutiveFailures: 1, // Only 1 failure so far
+							ConsecutiveFailures: 2,
+						},
+					},
+				}
+
+				monitor = healthcheck.NewMonitor(mockStore, &mockInstanceStore{}, cfg)
+				monitor.CheckProviders(ctx)
+
+				Expect(mockStore.healthStatusUpdates).To(HaveLen(1))
+				update := mockStore.healthStatusUpdates[0]
+				Expect(update.Status).To(Equal(model.HealthStatusUnavailable))
+				Expect(update.ConsecutiveFailures).To(Equal(3))
+			})
+
+			It("stays Ready until reaching max consecutive failures", func() {
+				server := failingServer()
+				defer server.Close()
+
+				providerID := uuid.New().String()
+				mockStore := &mockProviderStore{
+					providers: model.ProviderList{
+						{
+							ID:                  providerID,
+							Name:                "test-provider",
+							Endpoint:            server.URL,
+							HealthStatus:        model.HealthStatusReady,
+							ConsecutiveFailures: 1,
 						},
 					},
 				}
@@ -313,10 +369,8 @@ var _ = Describe("Monitor", func() {
 		})
 
 		Context("with a recovered provider", func() {
-			It("resets to Ready with zero consecutive failures", func() {
-				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-					w.WriteHeader(http.StatusOK)
-				}))
+			It("resets Unavailable provider to Ready with zero consecutive failures", func() {
+				server := healthyServer()
 				defer server.Close()
 
 				providerID := uuid.New().String()
@@ -326,8 +380,33 @@ var _ = Describe("Monitor", func() {
 							ID:                  providerID,
 							Name:                "test-provider",
 							Endpoint:            server.URL,
-							HealthStatus:        model.HealthStatusNotReady,
-							ConsecutiveFailures: 5, // Was failing, now healthy
+							HealthStatus:        model.HealthStatusUnavailable,
+							ConsecutiveFailures: 5,
+						},
+					},
+				}
+
+				monitor = healthcheck.NewMonitor(mockStore, &mockInstanceStore{}, cfg)
+				monitor.CheckProviders(ctx)
+
+				Expect(mockStore.healthStatusUpdates).To(HaveLen(1))
+				update := mockStore.healthStatusUpdates[0]
+				Expect(update.Status).To(Equal(model.HealthStatusReady))
+				Expect(update.ConsecutiveFailures).To(Equal(0))
+			})
+
+			It("resets Unhealthy provider to Ready with zero consecutive failures", func() {
+				server := healthyServer()
+				defer server.Close()
+
+				providerID := uuid.New().String()
+				mockStore := &mockProviderStore{
+					providers: model.ProviderList{
+						{
+							ID:           providerID,
+							Name:         "test-provider",
+							Endpoint:     server.URL,
+							HealthStatus: model.HealthStatusUnhealthy,
 						},
 					},
 				}
@@ -343,10 +422,8 @@ var _ = Describe("Monitor", func() {
 		})
 
 		Context("deletion status transitions on provider health change", func() {
-			It("calls MarkProviderDeletionsPendingProvider when provider transitions Ready -> NotReady", func() {
-				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-					w.WriteHeader(http.StatusInternalServerError)
-				}))
+			It("calls MarkProviderDeletionsPendingProvider when provider transitions Ready -> Unavailable", func() {
+				server := failingServer()
 				defer server.Close()
 
 				providerID := uuid.New().String()
@@ -354,10 +431,35 @@ var _ = Describe("Monitor", func() {
 					providers: model.ProviderList{
 						{
 							ID:                  providerID,
-							Name:                "unhealthy-provider",
+							Name:                "failing-provider",
 							Endpoint:            server.URL,
 							HealthStatus:        model.HealthStatusReady,
-							ConsecutiveFailures: 2, // This will be the 3rd failure -> NotReady
+							ConsecutiveFailures: 2,
+						},
+					},
+				}
+
+				instStore := &mockInstanceStore{}
+				monitor = healthcheck.NewMonitor(mockStore, instStore, cfg)
+				monitor.CheckProviders(ctx)
+
+				Expect(instStore.markProviderDeletionsCalls).To(HaveLen(1))
+				Expect(instStore.markProviderDeletionsCalls[0]).To(Equal("failing-provider"))
+				Expect(instStore.reactivateProviderCalls).To(BeEmpty())
+			})
+
+			It("calls MarkProviderDeletionsPendingProvider when provider transitions Ready -> Unhealthy", func() {
+				server := unhealthyServer()
+				defer server.Close()
+
+				providerID := uuid.New().String()
+				mockStore := &mockProviderStore{
+					providers: model.ProviderList{
+						{
+							ID:           providerID,
+							Name:         "unhealthy-provider",
+							Endpoint:     server.URL,
+							HealthStatus: model.HealthStatusReady,
 						},
 					},
 				}
@@ -371,10 +473,8 @@ var _ = Describe("Monitor", func() {
 				Expect(instStore.reactivateProviderCalls).To(BeEmpty())
 			})
 
-			It("calls ReactivateProviderDeletions when provider transitions NotReady -> Ready", func() {
-				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-					w.WriteHeader(http.StatusOK)
-				}))
+			It("calls ReactivateProviderDeletions when provider transitions Unavailable -> Ready", func() {
+				server := healthyServer()
 				defer server.Close()
 
 				providerID := uuid.New().String()
@@ -384,7 +484,7 @@ var _ = Describe("Monitor", func() {
 							ID:                  providerID,
 							Name:                "recovered-provider",
 							Endpoint:            server.URL,
-							HealthStatus:        model.HealthStatusNotReady,
+							HealthStatus:        model.HealthStatusUnavailable,
 							ConsecutiveFailures: 5,
 						},
 					},
@@ -399,10 +499,33 @@ var _ = Describe("Monitor", func() {
 				Expect(instStore.markProviderDeletionsCalls).To(BeEmpty())
 			})
 
+			It("calls ReactivateProviderDeletions when provider transitions Unhealthy -> Ready", func() {
+				server := healthyServer()
+				defer server.Close()
+
+				providerID := uuid.New().String()
+				mockStore := &mockProviderStore{
+					providers: model.ProviderList{
+						{
+							ID:           providerID,
+							Name:         "recovered-provider",
+							Endpoint:     server.URL,
+							HealthStatus: model.HealthStatusUnhealthy,
+						},
+					},
+				}
+
+				instStore := &mockInstanceStore{}
+				monitor = healthcheck.NewMonitor(mockStore, instStore, cfg)
+				monitor.CheckProviders(ctx)
+
+				Expect(instStore.reactivateProviderCalls).To(HaveLen(1))
+				Expect(instStore.reactivateProviderCalls[0]).To(Equal("recovered-provider"))
+				Expect(instStore.markProviderDeletionsCalls).To(BeEmpty())
+			})
+
 			It("does not call either method when provider stays Ready", func() {
-				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-					w.WriteHeader(http.StatusOK)
-				}))
+				server := healthyServer()
 				defer server.Close()
 
 				providerID := uuid.New().String()
@@ -425,10 +548,8 @@ var _ = Describe("Monitor", func() {
 				Expect(instStore.reactivateProviderCalls).To(BeEmpty())
 			})
 
-			It("does not call either method when provider stays NotReady", func() {
-				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-					w.WriteHeader(http.StatusInternalServerError)
-				}))
+			It("does not call either method when provider stays Unavailable", func() {
+				server := failingServer()
 				defer server.Close()
 
 				providerID := uuid.New().String()
@@ -438,8 +559,32 @@ var _ = Describe("Monitor", func() {
 							ID:                  providerID,
 							Name:                "still-down-provider",
 							Endpoint:            server.URL,
-							HealthStatus:        model.HealthStatusNotReady,
+							HealthStatus:        model.HealthStatusUnavailable,
 							ConsecutiveFailures: 5,
+						},
+					},
+				}
+
+				instStore := &mockInstanceStore{}
+				monitor = healthcheck.NewMonitor(mockStore, instStore, cfg)
+				monitor.CheckProviders(ctx)
+
+				Expect(instStore.markProviderDeletionsCalls).To(BeEmpty())
+				Expect(instStore.reactivateProviderCalls).To(BeEmpty())
+			})
+
+			It("does not call either method when provider stays Unhealthy", func() {
+				server := unhealthyServer()
+				defer server.Close()
+
+				providerID := uuid.New().String()
+				mockStore := &mockProviderStore{
+					providers: model.ProviderList{
+						{
+							ID:           providerID,
+							Name:         "still-unhealthy-provider",
+							Endpoint:     server.URL,
+							HealthStatus: model.HealthStatusUnhealthy,
 						},
 					},
 				}
