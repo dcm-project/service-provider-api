@@ -307,7 +307,7 @@ func (s *ServiceTypeInstanceStore) MarkPendingProviderIfNotReady(ctx context.Con
 		Model(&model.ServiceTypeInstance{}).
 		Where("id = ? AND provider_name IN (?)",
 			instanceID,
-			s.db.Model(&model.Provider{}).Select("name").Where("health_status = ?", model.HealthStatusNotReady),
+			s.db.Model(&model.Provider{}).Select("name").Where("health_status IN ?", []model.HealthStatus{model.HealthStatusUnhealthy, model.HealthStatusUnavailable}),
 		).
 		Update("deletion_status", DeletionStatusPendingProvider)
 	if result.Error != nil {
