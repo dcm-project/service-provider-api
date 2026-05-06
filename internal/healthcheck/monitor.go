@@ -4,7 +4,6 @@ package healthcheck
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"math"
 	"net/http"
@@ -178,14 +177,8 @@ func (m *Monitor) performHealthCheck(ctx context.Context, provider model.Provide
 		return healthCheckFailed
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		slog.Error("Error reading health check response body", "provider", provider.Name, "error", err)
-		return healthCheckFailed
-	}
-
 	var hr healthResponse
-	if err := json.Unmarshal(body, &hr); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&hr); err != nil {
 		slog.Error("Error parsing health check response", "provider", provider.Name, "error", err)
 		return healthCheckFailed
 	}
