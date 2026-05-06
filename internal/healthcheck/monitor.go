@@ -3,6 +3,7 @@ package healthcheck
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"math"
 	"net/http"
@@ -15,6 +16,18 @@ import (
 	providerstore "github.com/dcm-project/service-provider-manager/internal/store/provider"
 	rmstore "github.com/dcm-project/service-provider-manager/internal/store/resource_manager"
 )
+
+type healthCheckResult int
+
+const (
+	healthCheckHealthy healthCheckResult = iota
+	healthCheckUnhealthy
+	healthCheckFailed
+)
+
+type healthResponse struct {
+	Status string `json:"status"`
+}
 
 // Monitor performs periodic health checks on registered service providers
 type Monitor struct {
@@ -99,16 +112,22 @@ func (m *Monitor) CheckProviders(ctx context.Context) {
 
 func (m *Monitor) checkProvider(ctx context.Context, provider model.Provider) {
 	now := time.Now()
-	newStatus := model.HealthStatusReady
-	consecutiveFailures := 0
+	var newStatus model.HealthStatus
+	var consecutiveFailures int
 
-	healthy := m.performHealthCheck(ctx, provider)
-	if !healthy {
+	result := m.performHealthCheck(ctx, provider)
+	switch result {
+	case healthCheckHealthy:
+		newStatus = model.HealthStatusReady
+		consecutiveFailures = 0
+	case healthCheckUnhealthy:
+		newStatus = model.HealthStatusUnhealthy
+		consecutiveFailures = 0
+	case healthCheckFailed:
 		consecutiveFailures = provider.ConsecutiveFailures + 1
-
 		newStatus = provider.HealthStatus
 		if consecutiveFailures >= m.maxConsecutiveFailures {
-			newStatus = model.HealthStatusNotReady
+			newStatus = model.HealthStatusUnavailable
 		}
 	}
 
@@ -126,7 +145,7 @@ func (m *Monitor) checkProvider(ctx context.Context, provider model.Provider) {
 		)
 
 		switch newStatus {
-		case model.HealthStatusNotReady:
+		case model.HealthStatusUnhealthy, model.HealthStatusUnavailable:
 			if err := m.instanceStore.MarkProviderDeletionsPendingProvider(ctx, provider.Name); err != nil {
 				slog.Error("Failed to park deletions for unhealthy provider", "provider", provider.Name, "error", err)
 			}
@@ -138,36 +157,50 @@ func (m *Monitor) checkProvider(ctx context.Context, provider model.Provider) {
 	}
 }
 
-func (m *Monitor) performHealthCheck(ctx context.Context, provider model.Provider) bool {
+func (m *Monitor) performHealthCheck(ctx context.Context, provider model.Provider) healthCheckResult {
 	healthURL := strings.TrimRight(provider.Endpoint, "/") + "/health"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
 	if err != nil {
 		slog.Error("Error creating health check request", "provider", provider.Name, "error", err)
-		return false
+		return healthCheckFailed
 	}
 
 	resp, err := m.httpClient.Do(req)
 	if err != nil {
 		slog.Debug("Health check failed", "provider", provider.Name, "error", err)
-		return false
+		return healthCheckFailed
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return true
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		slog.Debug("Health check failed", "provider", provider.Name, "status_code", resp.StatusCode)
+		return healthCheckFailed
 	}
 
-	slog.Debug("Health check failed", "provider", provider.Name, "status_code", resp.StatusCode)
-	return false
+	var hr healthResponse
+	if err := json.NewDecoder(resp.Body).Decode(&hr); err != nil {
+		slog.Error("Error parsing health check response", "provider", provider.Name, "error", err)
+		return healthCheckFailed
+	}
+
+	switch hr.Status {
+	case "healthy":
+		return healthCheckHealthy
+	case "unhealthy":
+		slog.Debug("Provider reports unhealthy backing provider", "provider", provider.Name)
+		return healthCheckUnhealthy
+	default:
+		slog.Debug("Unknown health status in response", "provider", provider.Name, "status", hr.Status)
+		return healthCheckFailed
+	}
 }
 
 // CalculateNextCheckTime determines when the next health check should occur
-// For Ready providers: standard interval (10 seconds)
-// Exponential backoff for NotReady providers
+// For Ready and Unhealthy providers: standard interval (provider is reachable)
+// Exponential backoff for Unavailable providers
 // Formula: min(MaxBackoff, BaseInterval * 2^(failures - MaxConsecutiveFailures))
-// This starts exponential backoff after the provider becomes NotReady
 func (m *Monitor) CalculateNextCheckTime(now time.Time, status model.HealthStatus, consecutiveFailures int) time.Time {
-	if status == model.HealthStatusReady {
+	if status != model.HealthStatusUnavailable {
 		return now.Add(m.interval)
 	}
 

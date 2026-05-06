@@ -46,7 +46,7 @@ func stubProviderHealthEndpoint() {
 				"Content-Type": "application/json",
 			},
 			"jsonBody": map[string]interface{}{
-				"status": "ok",
+				"status": "healthy",
 			},
 		},
 	}
@@ -68,6 +68,28 @@ func waitForProviderReady(apiClient *providerclient.ClientWithResponses, ctx con
 		}
 		return *getResp.JSON200.HealthStatus
 	}, 30*time.Second, 1*time.Second).Should(Equal("ready"), "Provider should become ready")
+}
+
+func stubProviderHealthUnhealthy() {
+	resetHealthStubs()
+	stub := map[string]interface{}{
+		"request": map[string]interface{}{
+			"method":  "GET",
+			"urlPath": "/health",
+		},
+		"response": map[string]interface{}{
+			"status": 200,
+			"headers": map[string]string{
+				"Content-Type": "application/json",
+			},
+			"jsonBody": map[string]interface{}{
+				"status": "unhealthy",
+			},
+		},
+	}
+
+	body, _ := json.Marshal(stub)
+	http.Post(wireMockURL()+"/__admin/mappings", "application/json", bytes.NewReader(body))
 }
 
 func stubProviderCreateInstance() {
@@ -178,5 +200,18 @@ func waitForProviderNotReady(apiClient *providerclient.ClientWithResponses, ctx 
 			return ""
 		}
 		return *getResp.JSON200.HealthStatus
-	}, 60*time.Second, 1*time.Second).Should(Equal("not_ready"), "Provider should become not ready")
+	}, 60*time.Second, 1*time.Second).Should(Equal("unavailable"), "Provider should become unavailable")
+}
+
+func waitForProviderUnhealthy(apiClient *providerclient.ClientWithResponses, ctx context.Context, providerID string) {
+	Eventually(func() string {
+		getResp, err := apiClient.GetProviderWithResponse(ctx, providerID)
+		if err != nil || getResp.StatusCode() != http.StatusOK || getResp.JSON200 == nil {
+			return ""
+		}
+		if getResp.JSON200.HealthStatus == nil {
+			return ""
+		}
+		return *getResp.JSON200.HealthStatus
+	}, 60*time.Second, 1*time.Second).Should(Equal("unhealthy"), "Provider should become unhealthy")
 }

@@ -11,8 +11,10 @@ type HealthStatus string
 const (
 	// HealthStatusReady indicates the provider is healthy and ready to serve requests
 	HealthStatusReady HealthStatus = "ready"
-	// HealthStatusNotReady indicates the provider is not healthy or unreachable
-	HealthStatusNotReady HealthStatus = "not_ready"
+	// HealthStatusUnhealthy indicates the provider is reachable but the backing provider is unavailable
+	HealthStatusUnhealthy HealthStatus = "unhealthy"
+	// HealthStatusUnavailable indicates the provider is unreachable
+	HealthStatusUnavailable HealthStatus = "unavailable"
 )
 
 func (h HealthStatus) StringPtr() *string {

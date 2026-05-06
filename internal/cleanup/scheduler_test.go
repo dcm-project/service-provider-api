@@ -86,7 +86,7 @@ var _ = Describe("Scheduler", func() {
 		It("skips instance when provider is not ready", func() {
 			// Mark provider as NotReady
 			Expect(db.Model(&model.Provider{}).Where("name = ?", providerName).
-				Update("health_status", model.HealthStatusNotReady).Error).NotTo(HaveOccurred())
+				Update("health_status", model.HealthStatusUnavailable).Error).NotTo(HaveOccurred())
 
 			// Create an instance marked for deletion
 			inst := model.ServiceTypeInstance{
@@ -102,6 +102,27 @@ var _ = Describe("Scheduler", func() {
 			scheduler.ProcessPendingDeletions(ctx)
 
 			// Instance should be marked as PENDING_PROVIDER, not deleted
+			found, err := dataStore.ServiceTypeInstance().Get(ctx, inst.ID, true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*found.DeletionStatus).To(Equal("PENDING_PROVIDER"))
+		})
+
+		It("skips instance when provider is unhealthy", func() {
+			Expect(db.Model(&model.Provider{}).Where("name = ?", providerName).
+				Update("health_status", model.HealthStatusUnhealthy).Error).NotTo(HaveOccurred())
+
+			inst := model.ServiceTypeInstance{
+				ID:           uuid.New().String(),
+				ProviderName: providerName,
+				Status:       "PROVISIONING",
+				InstanceName: "skip-unhealthy-inst",
+				Spec:         map[string]any{"cpu": 1},
+			}
+			Expect(db.Create(&inst).Error).NotTo(HaveOccurred())
+			Expect(dataStore.ServiceTypeInstance().MarkForDeletion(ctx, inst.ID)).To(Succeed())
+
+			scheduler.ProcessPendingDeletions(ctx)
+
 			found, err := dataStore.ServiceTypeInstance().Get(ctx, inst.ID, true)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*found.DeletionStatus).To(Equal("PENDING_PROVIDER"))

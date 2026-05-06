@@ -369,20 +369,20 @@ var _ = Describe("Provider Store", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			nextCheck := time.Now().Add(1 * time.Hour)
-			err = providerStore.UpdateHealthStatus(ctx, p.ID, model.HealthStatusNotReady, 3, nextCheck)
+			err = providerStore.UpdateHealthStatus(ctx, p.ID, model.HealthStatusUnavailable, 3, nextCheck)
 
 			Expect(err).NotTo(HaveOccurred())
 
 			updated, err := providerStore.Get(ctx, p.ID)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(updated.HealthStatus).To(Equal(model.HealthStatusNotReady))
+			Expect(updated.HealthStatus).To(Equal(model.HealthStatusUnavailable))
 			Expect(updated.ConsecutiveFailures).To(Equal(3))
 			Expect(updated.NextHealthCheck).NotTo(BeNil())
 		})
 
 		It("updates health status to ready", func() {
 			p := newProvider("health-ready")
-			p.HealthStatus = model.HealthStatusNotReady
+			p.HealthStatus = model.HealthStatusUnavailable
 			p.ConsecutiveFailures = 5
 			_, err := providerStore.Create(ctx, p)
 			Expect(err).NotTo(HaveOccurred())
