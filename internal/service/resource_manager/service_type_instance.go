@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/dcm-project/service-provider-manager/api/v1alpha1/resource_manager"
@@ -72,6 +73,15 @@ func (s *InstanceService) CreateInstance(ctx context.Context, request *resource_
 		return nil, err
 	}
 
+	// Extract service_type from spec — ok==false if the key is absent or the value is not a string
+	serviceType, ok := request.Spec["service_type"].(string)
+	if !ok {
+		return nil, service.NewValidationError("spec.service_type is required and must be a string")
+	}
+	if strings.TrimSpace(serviceType) == "" {
+		return nil, service.NewValidationError("spec.service_type must not be empty")
+	}
+
 	// Send request to provider endpoint with the resolved ID
 	providerResponse, err := s.createInstanceWithProvider(ctx, provider.Endpoint, request, instanceID)
 	if err != nil {
@@ -83,6 +93,7 @@ func (s *InstanceService) CreateInstance(ctx context.Context, request *resource_
 	instance := model.ServiceTypeInstance{
 		ID:           *instanceID,
 		ProviderName: providerName,
+		ServiceType:  serviceType,
 		Status:       providerResponse.Status,
 		Spec:         request.Spec,
 	}
@@ -119,16 +130,18 @@ func (s *InstanceService) GetInstance(ctx context.Context, instanceID string, sh
 }
 
 // ListInstances returns instances with optional filtering and pagination
-func (s *InstanceService) ListInstances(ctx context.Context, providerName *string, showDeleted bool, maxPageSize *int, pageToken *string) (*resource_manager.ServiceTypeInstanceList, error) {
+func (s *InstanceService) ListInstances(ctx context.Context, providerName *string, serviceType *string, showDeleted bool, maxPageSize *int, pageToken *string) (*resource_manager.ServiceTypeInstanceList, error) {
 	log := logging.FromContext(ctx)
 	log.Debug("Listing instances",
 		"provider_filter", providerName,
+		"service_type_filter", serviceType,
 		"page_size", maxPageSize,
 		"show_deleted", showDeleted,
 	)
 
 	opts := &rmstore.ServiceTypeInstanceListOptions{
 		ProviderName: providerName,
+		ServiceType:  serviceType,
 		ShowDeleted:  showDeleted,
 	}
 
