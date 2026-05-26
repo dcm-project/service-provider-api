@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v5"
@@ -19,6 +20,7 @@ var ErrInstanceNotFound = errors.New("service type instance not found")
 // ServiceTypeInstanceListOptions contains optional fields for listing instances.
 type ServiceTypeInstanceListOptions struct {
 	ProviderName *string
+	ServiceType  *string
 	ShowDeleted  bool
 	PageSize     int
 	PageToken    *string
@@ -91,6 +93,10 @@ func (s *ServiceTypeInstanceStore) List(ctx context.Context, opts *ServiceTypeIn
 	// Apply filters
 	if opts != nil && opts.ProviderName != nil && *opts.ProviderName != "" {
 		query = query.Where("provider_name = ?", *opts.ProviderName)
+	}
+
+	if opts != nil && opts.ServiceType != nil && strings.TrimSpace(*opts.ServiceType) != "" {
+		query = query.Where("service_type = ?", *opts.ServiceType)
 	}
 
 	// By default, exclude soft-deleted instances; show_deleted includes them
