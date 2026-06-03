@@ -55,6 +55,8 @@ func (s *ProviderService) RegisterOrUpdateProvider(ctx context.Context, req *pro
 
 	if existing != nil {
 		log.Debug("Existing provider found, updating", "provider_id", existing.ID, "name", req.Name)
+		existing.ConsecutiveFailures = 0
+		existing.NextHealthCheck = nil
 		updated, err := s.updateExistingProvider(ctx, existing, req)
 		if err != nil {
 			return nil, false, err

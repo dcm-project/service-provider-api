@@ -123,6 +123,7 @@ func (s *ProviderStore) Update(ctx context.Context, provider model.Provider) (*m
 		Select(
 			"Name", "ServiceType", "SchemaVersion", "Endpoint",
 			"DisplayName", "Operations", "Metadata", "UpdateTime",
+			"ConsecutiveFailures", "NextHealthCheck",
 		).Updates(&provider)
 	if result.Error != nil {
 		return nil, result.Error
