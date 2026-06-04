@@ -3,6 +3,7 @@ package provider_test
 import (
 	"context"
 	"fmt"
+	"time"
 
 	providerserver "github.com/dcm-project/service-provider-manager/internal/api/server/provider"
 	"github.com/dcm-project/service-provider-manager/internal/service"
@@ -160,6 +161,32 @@ var _ = Describe("ProviderService", func() {
 			val3, ok := got.Metadata.Get("supportedPlatforms")
 			Expect(ok).To(BeTrue())
 			Expect(val3).To(Equal("kubevirt"))
+		})
+
+		It("resets health backoff on re-register", func() {
+			req := newProvider("health-reset")
+			resp, _, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			futureCheck := time.Now().Add(24 * time.Hour)
+			err = db.Model(&model.Provider{}).Where("id = ?", *resp.Id).Updates(map[string]any{
+				"health_status":        model.HealthStatusUnavailable,
+				"consecutive_failures": 5,
+				"next_health_check":    futureCheck,
+			}).Error
+			Expect(err).NotTo(HaveOccurred())
+
+			req2 := newProvider("health-reset")
+			req2.Id = resp.Id
+			_, updated, err := providerService.RegisterOrUpdateProvider(ctx, req2, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updated).To(BeTrue())
+
+			var p model.Provider
+			Expect(db.Where("id = ?", *resp.Id).First(&p).Error).NotTo(HaveOccurred())
+			Expect(p.ConsecutiveFailures).To(Equal(0))
+			Expect(p.NextHealthCheck).To(BeNil())
+			Expect(p.HealthStatus).To(Equal(model.HealthStatusUnavailable))
 		})
 
 		It("returns conflict when name exists with different ID", func() {
@@ -324,6 +351,35 @@ var _ = Describe("ProviderService", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(updated.Endpoint).To(Equal("https://updated.example.com"))
+		})
+
+		It("preserves health backoff on field update", func() {
+			req := newProvider("health-preserve")
+			resp, _, err := providerService.RegisterOrUpdateProvider(ctx, req, nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			futureCheck := time.Now().Add(24 * time.Hour)
+			err = db.Model(&model.Provider{}).Where("id = ?", *resp.Id).Updates(map[string]any{
+				"health_status":        model.HealthStatusUnavailable,
+				"consecutive_failures": 5,
+				"next_health_check":    futureCheck,
+			}).Error
+			Expect(err).NotTo(HaveOccurred())
+
+			update := &providerserver.Provider{
+				Name:          "health-preserve",
+				Endpoint:      "https://updated.example.com",
+				ServiceType:   "vm",
+				SchemaVersion: "v1alpha1",
+			}
+			_, err = providerService.UpdateProvider(ctx, *resp.Id, update)
+			Expect(err).NotTo(HaveOccurred())
+
+			var p model.Provider
+			Expect(db.Where("id = ?", *resp.Id).First(&p).Error).NotTo(HaveOccurred())
+			Expect(p.ConsecutiveFailures).To(Equal(5))
+			Expect(p.NextHealthCheck).NotTo(BeNil())
+			Expect(p.HealthStatus).To(Equal(model.HealthStatusUnavailable))
 		})
 
 		It("returns conflict when renaming to existing name", func() {
