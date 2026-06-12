@@ -1,4 +1,15 @@
-# Service Provider Manager
+# Service Provider Manager (archived)
+
+> [!WARNING]
+> **This repository is archived and read-only.** Do not open PRs here.
+>
+> All active development moved to the
+> [control-plane](https://github.com/dcm-project/control-plane) monolith.
+
+---
+
+<details>
+<summary><strong>Legacy README</strong> (historical reference only)</summary>
 
 DCM Service Provider Manager - Registration and management of Service Providers.
 
@@ -76,3 +87,5 @@ in shared-workflows for the full release process, tag behavior, and version conv
 ## License
 
 Apache 2.0 - see [LICENSE](LICENSE)
+
+</details>
