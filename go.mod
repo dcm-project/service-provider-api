@@ -16,7 +16,7 @@ require (
 	github.com/oapi-codegen/oapi-codegen/v2 v2.6.1-0.20260318123712-00a90b7a03f4
 	github.com/oapi-codegen/runtime v1.3.0
 	github.com/onsi/ginkgo/v2 v2.28.1
-	github.com/onsi/gomega v1.39.1
+	github.com/onsi/gomega v1.40.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
